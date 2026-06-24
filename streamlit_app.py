@@ -32,8 +32,12 @@ st.set_page_config(page_title="Spotify Review Discovery Engine", page_icon="🟢
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 2rem; max-width: 820px; }
-      .si-title { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+      .block-container { padding-top: 3.5rem; max-width: 820px; }
+      .si-title { font-size: 26px; font-weight: 800; letter-spacing: -0.01em;
+                  margin: 0; line-height: 1.35; display: inline-block;
+                  padding: 2px 0; white-space: normal; }
+      .si-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .si-header svg { flex: 0 0 auto; }
       .si-sub { color: #B3B3B3; font-size: 12px; letter-spacing: .06em;
                 text-transform: uppercase; margin-bottom: 4px; }
       .si-badge { display:inline-block; background:rgba(29,185,84,.15); color:#53e076;
@@ -74,7 +78,7 @@ SPOTIFY_LOGO = (
     "4.949-10.73 2.739z'/></svg>"
 )
 st.markdown(
-    f"<div style='display:flex;align-items:center;gap:12px;'>{SPOTIFY_LOGO}"
+    f"<div class='si-header'>{SPOTIFY_LOGO}"
     "<span class='si-title'>Spotify Review Discovery Engine</span></div>",
     unsafe_allow_html=True,
 )
