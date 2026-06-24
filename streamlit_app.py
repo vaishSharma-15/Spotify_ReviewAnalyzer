@@ -77,11 +77,44 @@ SPOTIFY_LOGO = (
     "78.756-7.245 109.83 11.202a7.823 7.823 0 012.74 10.733c-2.2 3.722-7.02 "
     "4.949-10.73 2.739z'/></svg>"
 )
-st.markdown(
-    f"<div class='si-header'>{SPOTIFY_LOGO}"
-    "<span class='si-title'>Spotify Review Discovery Engine</span></div>",
-    unsafe_allow_html=True,
-)
+head_l, head_r = st.columns([0.74, 0.26])
+with head_l:
+    st.markdown(
+        f"<div class='si-header'>{SPOTIFY_LOGO}"
+        "<span class='si-title'>Spotify Review Discovery Engine</span></div>",
+        unsafe_allow_html=True,
+    )
+with head_r:
+    st.write("")
+    extract_live = st.button(
+        "🔄 Extract live",
+        use_container_width=True,
+        help="Scrape fresh reviews from the App Store right now to prove the "
+             "ingestion pipeline is live (separate from the query path).",
+    )
+
+# ---- Live extraction demo (Phase 1 on demand) ----
+if extract_live:
+    with st.spinner("Scraping fresh reviews live from the Apple App Store…"):
+        try:
+            from ingestion.collectors.appstore import AppStoreCollector
+            fresh = list(AppStoreCollector(countries="us").collect(6))
+        except Exception as exc:  # noqa: BLE001
+            fresh = []
+            st.error(f"Live extraction failed: {exc}")
+    if fresh:
+        st.success(f"✅ Pulled {len(fresh)} reviews live, just now — pipeline is working.")
+        for r in fresh:
+            stars = "★" * (r.rating or 0) + "☆" * (5 - (r.rating or 0))
+            with st.container(border=True):
+                st.markdown(
+                    f"**{r.author or 'anonymous'}** · "
+                    f"<span style='color:#1DB954'>{stars}</span> · "
+                    f"<span style='color:#B3B3B3;font-size:12px'>App Store · {r.created_at or ''}</span>",
+                    unsafe_allow_html=True,
+                )
+                st.write((r.title + " — " if r.title else "") + (r.body or "")[:240])
+        st.divider()
 
 if status["ok"]:
     st.markdown(f"<span class='si-badge'>{status['n']} reviews indexed</span>",
