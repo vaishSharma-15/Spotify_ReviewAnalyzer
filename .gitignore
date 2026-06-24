@@ -14,3 +14,4 @@ reviews.db-wal
 *.bak
 *.bak2
 exports/
+.streamlit/secrets.toml

@@ -1,0 +1,11 @@
+# Sonic Intelligence theme (from .claude/docs DESIGN.md)
+[theme]
+base = "dark"
+primaryColor = "#1DB954"
+backgroundColor = "#131313"
+secondaryBackgroundColor = "#212121"
+textColor = "#FFFFFF"
+font = "sans serif"
+
+[server]
+headless = true

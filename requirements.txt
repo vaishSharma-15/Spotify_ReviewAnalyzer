@@ -17,5 +17,6 @@ sentence-transformers>=2.2  # local embedding model (all-MiniLM-L6-v2)
 chromadb>=0.4               # local vector store for retrieval
 
 # Phase 5 (Query Bot / API + UI)
-fastapi>=0.110             # backend API
-uvicorn>=0.29              # ASGI server
+fastapi>=0.110             # backend API (local/dev)
+uvicorn>=0.29              # ASGI server (local/dev)
+streamlit>=1.32           # combined frontend+backend app (deployable)
