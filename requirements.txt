@@ -1,0 +1,21 @@
+# Phase 1 (Ingestion) dependencies.
+# The App Store collector runs on the Python standard library alone.
+# The collectors below are OPTIONAL — each one degrades gracefully if its
+# dependency is missing, so you can install only the sources you need.
+
+requests>=2.28            # Reddit (public JSON) + Community forum collectors
+google-play-scraper>=1.2  # Google Play Store collector
+praw>=7.7                 # Reddit collector (authenticated, preferred over public JSON)
+beautifulsoup4>=4.11      # Community forum HTML parsing
+python-dotenv>=1.0        # load credentials from .env
+
+# Phase 2 (Structuring)
+groq>=0.37                # LLM structuring via Groq (OpenAI-compatible)
+
+# Phase 4 (Indexing)
+sentence-transformers>=2.2  # local embedding model (all-MiniLM-L6-v2)
+chromadb>=0.4               # local vector store for retrieval
+
+# Phase 5 (Query Bot / API + UI)
+fastapi>=0.110             # backend API
+uvicorn>=0.29              # ASGI server

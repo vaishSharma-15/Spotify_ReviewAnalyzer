@@ -8,3 +8,9 @@ __pycache__/
 node_modules/
 dist/
 build/
+chroma_index/
+reviews.db-shm
+reviews.db-wal
+*.bak
+*.bak2
+exports/
