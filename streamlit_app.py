@@ -26,7 +26,7 @@ except Exception:  # noqa: BLE001 - no secrets.toml locally is fine
 
 from app import rag  # noqa: E402  (after env is set)
 
-st.set_page_config(page_title="Sonic Intelligence", page_icon="🎧", layout="centered")
+st.set_page_config(page_title="Spotify Review Discovery Engine", page_icon="🟢", layout="centered")
 
 # ---- Light CSS polish on top of the dark theme (config.toml) ----
 st.markdown(
@@ -58,12 +58,26 @@ def _warm():
 status = _warm()
 
 # ---- Header ----
-c1, c2 = st.columns([0.12, 0.88])
-with c1:
-    st.markdown("<div style='font-size:40px'>🎧</div>", unsafe_allow_html=True)
-with c2:
-    st.markdown("<div class='si-sub'>Spotify Review Discovery</div>"
-                "<div class='si-title'>Sonic Intelligence</div>", unsafe_allow_html=True)
+SPOTIFY_LOGO = (
+    "<svg viewBox='0 0 168 168' width='40' height='40' aria-label='Spotify'>"
+    "<path fill='#1DB954' d='M83.996.277C37.747.277.394 37.63.394 83.881c0 "
+    "46.251 37.353 83.604 83.602 83.604 46.254 0 83.605-37.353 "
+    "83.605-83.604 0-46.249-37.351-83.6-83.605-83.6zm38.404 120.78a5.217 "
+    "5.217 0 01-7.18 1.73c-19.662-12.01-44.414-14.73-73.564-8.07a5.222 5.222 "
+    "0 01-6.249-3.93 5.213 5.213 0 013.926-6.25c31.9-7.291 59.263-4.15 "
+    "81.337 9.34 2.46 1.51 3.24 4.72 1.73 7.18zm10.25-22.805c-1.89 "
+    "3.075-5.91 4.045-8.98 2.155-22.51-13.839-56.823-17.846-83.448-9.764-3.453 "
+    "1.043-7.1-.903-8.148-4.35a6.538 6.538 0 014.354-8.143c30.413-9.228 "
+    "68.222-4.758 94.072 11.127 3.07 1.89 4.04 5.91 2.15 8.98zm.88-23.744c-26.99-16.031-71.52-17.505-97.289-9.684-4.138 "
+    "1.255-8.514-1.081-9.768-5.219a7.835 7.835 0 015.221-9.771c29.581-8.98 "
+    "78.756-7.245 109.83 11.202a7.823 7.823 0 012.74 10.733c-2.2 3.722-7.02 "
+    "4.949-10.73 2.739z'/></svg>"
+)
+st.markdown(
+    f"<div style='display:flex;align-items:center;gap:12px;'>{SPOTIFY_LOGO}"
+    "<span class='si-title'>Spotify Review Discovery Engine</span></div>",
+    unsafe_allow_html=True,
+)
 
 if status["ok"]:
     st.markdown(f"<span class='si-badge'>{status['n']} reviews indexed</span>",
