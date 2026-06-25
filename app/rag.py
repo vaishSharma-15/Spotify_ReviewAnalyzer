@@ -26,12 +26,58 @@ except ImportError:
     pass
 
 TOP_K = 8
-# Below this top-hit similarity, the question is off-topic for this tool.
+# Below this top-hit similarity, the question is clearly unrelated (e.g. weather).
+# Note: it can't catch off-topic questions that merely mention "Spotify" (e.g.
+# "Spotify stock price") — those score high. The LLM scope gate handles those.
 RELEVANCE_THRESHOLD = 0.35
 OUT_OF_SCOPE_MSG = (
-    "I am Spotify Reviewer Analyser 🎧. Ask me regarding meaningful music "
-    "discovery and reducing repetitive listening behavior only. Thank you 🙏"
+    "I'm the Spotify Review Analyser 🎧 — I answer questions from real user "
+    "reviews about **music discovery and listening**: why it's hard to find new "
+    "music, frustrations with recommendations, repetitive listening, and what "
+    "different listeners need. I can't help with anything outside that (like "
+    "stock prices, company news, or general facts).\n\n"
+    "Try asking, for example: *“Why do users struggle to discover new music?”* 🙏"
 )
+
+# Lightweight intent gate: is the question actually about the music-discovery /
+# listening experience? Catches off-topic questions that mention "Spotify".
+SCOPE_SYSTEM = (
+    "You are a topic classifier for a Spotify music-review analysis tool. "
+    "Decide if the user's question is about the Spotify MUSIC DISCOVERY or "
+    "LISTENING EXPERIENCE. Answer with exactly one word: YES or NO.\n\n"
+    "Say YES if it's about: finding/discovering new music, recommendations and "
+    "their quality, recommendations repeating or feeling stale, autoplay/radio/"
+    "shuffle variety, playlists, search or browsing for music, artists, genres, "
+    "new releases, listening habits/behavior, or what listeners want or struggle "
+    "with. Examples that are YES: 'why do recommendations repeat', 'why is it hard "
+    "to find new music', 'what frustrates users about Discover Weekly', 'what do "
+    "listeners want'.\n\n"
+    "Say NO if it's NOT about the music-listening experience. Examples that are "
+    "NO: stock/share price, finances, revenue, CEO/executives, company history or "
+    "ownership, headquarters, subscription price/how to get premium free, weather, "
+    "sports, coding help, or general trivia."
+)
+
+
+def _in_scope(question: str, model: str) -> bool | None:
+    """True/False if the LLM topic gate decides; None if it couldn't run."""
+    try:
+        import groq
+        if not os.environ.get("GROQ_API_KEY"):
+            return None
+        resp = groq.Groq().chat.completions.create(
+            model=model,
+            temperature=0,
+            max_tokens=2,
+            messages=[
+                {"role": "system", "content": SCOPE_SYSTEM},
+                {"role": "user", "content": question},
+            ],
+        )
+        verdict = (resp.choices[0].message.content or "").strip().upper()
+        return verdict.startswith("Y")
+    except Exception:  # noqa: BLE001 - gate must never break the answer flow
+        return None
 # Groq free tier caps a single request at ~6000 tokens/min, so we feed a
 # bounded, truncated sample. The answer still reflects ALL reviews via the
 # Phase 3 aggregate percentages; the sample provides representative citations.
@@ -194,17 +240,28 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     emb_dim = len(embed_texts([question])[0])
     step(f"🧬 Turned it into a {emb_dim}-dim meaning vector "
          f"({(_t.time()-_t0)*1000:.0f} ms)")
+
+    # Scope gate (intent): catches off-topic questions even when they mention
+    # "Spotify" (e.g. stock price), which the similarity check alone can't.
+    _gate_model = model or os.environ.get("GROQ_MODEL", S.MODEL)
+    in_scope = _in_scope(question, _gate_model)
+    agg = aggregates()
+    if in_scope is False:
+        step("⛔ Topic check: not about music discovery/listening → out of scope")
+        return {"answer": OUT_OF_SCOPE_MSG, "citations": [],
+                "themes_analyzed": [], "evidence_count": 0,
+                "out_of_scope": True, "aggregates": agg, "trace": trace}
+
     _t1 = _t.time()
     hits = retrieve(question, top_k=top_k, theme=theme, sentiment=sentiment)
     step(f"📚 Searched all {_collection().count()} indexed reviews → "
          f"reading the {len(hits)} most relevant {sentiment} ones "
          f"({(_t.time()-_t1)*1000:.0f} ms)")
-    agg = aggregates()
     step(f"📊 Loaded stats over {agg.get('meta', {}).get('n_reviews', '1,401')} "
          f"analyzed reviews")
 
-    # Out-of-scope guard: if nothing is semantically close, the question isn't
-    # about Spotify music discovery — return the fixed scope message.
+    # Secondary guard: if nothing is even semantically close (e.g. the gate
+    # couldn't run), the question isn't about Spotify discovery — scope message.
     top_sim = max((h["similarity"] for h in hits), default=0.0)
     if not hits or top_sim < RELEVANCE_THRESHOLD:
         step(f"⛔ Closest match only {top_sim:.0%} similar → off-topic, skipping the LLM")
