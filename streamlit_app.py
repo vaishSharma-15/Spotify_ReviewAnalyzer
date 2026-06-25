@@ -257,9 +257,9 @@ def _answer_footer(meta: dict):
     html = (
         "<div class='evidence'>"
         f"<div class='eh'>📊 ANALYSIS SUMMARY</div>"
-        f"<div class='er'><b>Reviews analyzed:</b> {n}"
-        + (f" &nbsp;of&nbsp; {total:,} indexed" if total else "") + "</div>"
-        + (f"<div class='er'><b>Themes:</b> {themes}</div>" if themes else "")
+        f"<div class='er'><b>Read for this answer:</b> the {n} most relevant reviews"
+        + (f" &nbsp;(out of {total:,} on-theme reviews searched)" if total else "") + "</div>"
+        + (f"<div class='er'><b>Themes covered:</b> {themes}</div>" if themes else "")
         + (f"<div class='er'><b>Sources:</b> {sources}</div>" if sources else "")
         + "</div>"
     )

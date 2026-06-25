@@ -81,8 +81,8 @@ def _in_scope(question: str, model: str) -> bool | None:
 # Groq free tier caps a single request at ~6000 tokens/min, so we feed a
 # bounded, truncated sample. The answer still reflects ALL reviews via the
 # Phase 3 aggregate percentages; the sample provides representative citations.
-ANALYZE_K = 12     # reviews fed to the model per request
-SNIPPET_CHARS = 240  # max chars per review in the prompt
+ANALYZE_K = 20     # reviews fed to the model per request
+SNIPPET_CHARS = 220  # max chars per review in the prompt
 CITE_K = 4         # key supporting reviews surfaced as citations
 
 
