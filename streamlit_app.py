@@ -286,22 +286,56 @@ def view_terminal():
 # VIEW: ANALYTICS
 # ----------------------------------------------------------------------------
 def view_analytics():
+    # --- Pipeline funnel: every count, scraped → used ---
+    st.markdown("<div class='viewhead'>// PIPELINE FUNNEL</div>", unsafe_allow_html=True)
+    st.caption("From raw scrape to the reviews actually powering the chatbot.")
+    cards = [
+        ("Scraped (raw)", "~5,952", "pulled from 5 sources"),
+        ("Theme-relevant", "~1,919", "matched discovery themes"),
+        ("Curated", f"{ps['raw']:,}", "negative · no emoji"),
+        ("Analyzed by LLM", f"{ps['structured']:,}", "theme / sentiment / severity"),
+        ("Indexed (in use)", f"{ps['indexed']:,}", "searchable vectors"),
+    ]
+    cols = st.columns(len(cards))
+    for col, (k, v, sub) in zip(cols, cards):
+        col.markdown(
+            f"<div class='card'><div class='k'>{k}</div>"
+            f"<div class='v'>{v}</div>"
+            f"<div class='k' style='text-transform:none;margin-top:4px'>{sub}</div></div>",
+            unsafe_allow_html=True,
+        )
+    st.caption("Scraped & theme-relevant figures are from the pipeline run history "
+               "(the DB now stores the final curated set).")
+    st.write("")
+
+    # --- Reviews by source ---
+    st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
+    src_total = sum(n for _, n in ps["sources"]) or 1
+    for src, n in ps["sources"]:
+        _bar(src, n, src_total, num=f"{n:,} · {round(n/src_total*100)}%")
+    st.write("")
+
+    # --- Theme distribution ---
     st.markdown("<div class='viewhead'>// THEME DISTRIBUTION</div>", unsafe_allow_html=True)
     st.caption("What users complain about, across all analyzed reviews.")
-    c1, c2, c3 = st.columns(3)
-    for col, k, v in [(c1, "Reviews scraped", ps['raw']),
-                      (c2, "Analyzed by LLM", ps['structured']),
-                      (c3, "Indexed vectors", ps['indexed'])]:
-        col.markdown(f"<div class='card'><div class='k'>{k}</div>"
-                     f"<div class='v'>{v:,}</div></div>", unsafe_allow_html=True)
-    st.write("")
     td = agg.get("theme_distribution", [])
     total = sum(t["n"] for t in td) or 1
-    for t in td[:14]:
+    for t in td[:18]:
         _bar(_readable(t["theme"]), t["n"], total,
              num=f"{t['n']} · {round(t['pct'])}%")
     if not td:
         st.info("No aggregates yet — run `python -m aggregation.aggregate`.")
+        return
+    st.write("")
+
+    # --- User segments ---
+    sd = agg.get("segment_distribution", [])
+    if sd:
+        st.markdown("<div class='viewhead'>// USER SEGMENTS</div>", unsafe_allow_html=True)
+        seg_total = sum(s["n"] for s in sd) or 1
+        for s in sd[:14]:
+            _bar(_readable(s["user_segment"]), s["n"], seg_total,
+                 num=f"{s['n']} · {round(s.get('pct_of_reviews', 0))}%")
 
 
 # ----------------------------------------------------------------------------
