@@ -121,6 +121,35 @@ def validate(raw: dict) -> dict:
     }
 
 
+def _repair_json(text: str) -> dict | None:
+    """Best-effort recovery of nearly-valid JSON from the model.
+
+    Handles the common failure where the model emits a controlled-vocab field
+    fine but leaves unescaped double-quotes inside a free-text value (e.g.
+    frustration: ""blessed by the algorithm""), which breaks json.loads.
+    We pull each known field out by regex rather than trusting the braces.
+    """
+    out: dict = {}
+    # Single-token / array fields are safe to grab with a tolerant regex.
+    for key in ("theme", "sentiment", "feature_mentioned"):
+        m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', text)
+        if m:
+            out[key] = m.group(1)
+    m = re.search(r'"user_segment"\s*:\s*\[([^\]]*)\]', text)
+    if m:
+        out["user_segment"] = re.findall(r'"([^"]+)"', m.group(1))
+    m = re.search(r'"severity_score"\s*:\s*(\d+)', text)
+    if m:
+        out["severity_score"] = int(m.group(1))
+    # Free-text fields: take everything up to the next `",\n  "key"` boundary,
+    # collapsing any stray inner quotes.
+    for key in ("job_to_be_done", "frustration"):
+        m = re.search(rf'"{key}"\s*:\s*"(.*?)"\s*[,}}]\s*(?:"|$)', text, re.S)
+        if m:
+            out[key] = m.group(1).replace('"', "'").strip()
+    return out if out.get("theme") else None
+
+
 def structure_one(client, model: str, review: sqlite3.Row) -> dict:
     title = review["title"] or ""
     body = review["body"] or ""
@@ -140,12 +169,26 @@ def structure_one(client, model: str, review: sqlite3.Row) -> dict:
                 ],
             )
             text = resp.choices[0].message.content or ""
-            return validate(json.loads(text))
+            try:
+                return validate(json.loads(text))
+            except json.JSONDecodeError:
+                repaired = _repair_json(text)
+                if repaired:
+                    return validate(repaired)
+                raise
         except Exception as exc:  # noqa: BLE001
             msg = str(exc)
             # Daily token cap (TPD): can't recover today — abort the whole run.
             if "429" in msg and ("per day" in msg or "TPD" in msg):
                 raise DailyLimitReached(msg) from exc
+            # Model returned invalid JSON (400 json_validate_failed): try to
+            # salvage the partial output from the error payload before retrying.
+            if "json_validate_failed" in msg:
+                m = re.search(r"'failed_generation':\s*'(.*)'\s*}", msg, re.S)
+                if m:
+                    salvaged = _repair_json(m.group(1).encode().decode("unicode_escape"))
+                    if salvaged:
+                        return validate(salvaged)
             # Per-minute rate limit (RPM/TPM): honor the suggested wait and retry,
             # without consuming a quarantine attempt.
             if "429" in msg:
