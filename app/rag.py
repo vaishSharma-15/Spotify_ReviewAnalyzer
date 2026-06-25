@@ -165,22 +165,38 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     Focuses on NEGATIVE reviews by default (this is a frustration-discovery
     tool); positive reviews are excluded unless a sentiment is explicitly set.
     """
+    import time as _t
     sentiment = sentiment or "negative"
+    trace = []
+    _t0 = _t.time()
+    emb_dim = len(embed_texts([question])[0])
+    trace.append(f"Embedded your question into a {emb_dim}-dim vector "
+                 f"({(_t.time()-_t0)*1000:.0f} ms)")
+    _t1 = _t.time()
     hits = retrieve(question, top_k=top_k, theme=theme, sentiment=sentiment)
+    trace.append(f"Searched the vector index of {_collection().count()} reviews → "
+                 f"retrieved {len(hits)} closest {sentiment} reviews "
+                 f"({(_t.time()-_t1)*1000:.0f} ms)")
     agg = aggregates()
+    trace.append(f"Loaded Phase-3 aggregates over {agg.get('meta', {}).get('n_reviews', '1,000')} "
+                 f"structured reviews")
 
     # Out-of-scope guard: if nothing is semantically close, the question isn't
     # about Spotify music discovery — return the fixed scope message.
     top_sim = max((h["similarity"] for h in hits), default=0.0)
     if not hits or top_sim < RELEVANCE_THRESHOLD:
+        trace.append(f"Top match similarity {top_sim:.2f} < {RELEVANCE_THRESHOLD} "
+                     f"→ off-topic, skipped the LLM")
         return {"answer": OUT_OF_SCOPE_MSG, "citations": [],
                 "themes_analyzed": [], "evidence_count": 0,
-                "out_of_scope": True, "aggregates": agg}
+                "out_of_scope": True, "aggregates": agg, "trace": trace}
 
     # Which themes dominate the retrieved evidence — that's what we analyze.
     from collections import Counter
     theme_counts = Counter(h["theme"] for h in hits if h["theme"])
     top_themes = [t for t, _ in theme_counts.most_common(4)]
+    trace.append("Dominant themes in the evidence: "
+                 + ", ".join(_readable_theme(t) for t in top_themes))
 
     # Feed the model the broad evidence set so it analyzes the theme as a whole.
     evidence = "\n".join(
@@ -201,13 +217,15 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "no jargon, no lists, no citations."
     )
 
+    _used_model = model or os.environ.get("GROQ_MODEL", S.MODEL)
+    _t2 = _t.time()
     try:
         import groq
         if not os.environ.get("GROQ_API_KEY"):
             raise RuntimeError("GROQ_API_KEY not set")
         client = groq.Groq()
         resp = client.chat.completions.create(
-            model=model or os.environ.get("GROQ_MODEL", S.MODEL),
+            model=_used_model,
             temperature=0.3,
             max_tokens=300,
             messages=[
@@ -216,8 +234,11 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
             ],
         )
         text = resp.choices[0].message.content or ""
+        trace.append(f"Synthesized the answer with Groq `{_used_model}` "
+                     f"from {len(hits)} reviews ({(_t.time()-_t2)*1000:.0f} ms)")
     except Exception as exc:  # noqa: BLE001 - surface a clear error, still return citations
         text = f"(Could not generate a synthesized answer: {exc})"
+        trace.append(f"LLM call failed: {exc}")
 
     # No review cards — the answer is a self-contained natural synthesis.
     return {
@@ -226,4 +247,5 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "themes_analyzed": top_themes,
         "evidence_count": len(hits),
         "aggregates": agg,
+        "trace": trace,
     }
