@@ -229,10 +229,6 @@ with st.sidebar:
                      use_container_width=True, type="primary" if active else "secondary"):
             st.session_state.view = name
             st.rerun()
-    st.markdown(
-        "<div class='sess'>👤 <b>USER_SESSION_01</b>ADMINISTRATOR</div>",
-        unsafe_allow_html=True,
-    )
 
 
 # ----------------------------------------------------------------------------
@@ -318,10 +314,6 @@ def _answer_footer(meta: dict):
 # VIEW: TERMINAL (chat)
 # ----------------------------------------------------------------------------
 def view_terminal():
-    st.markdown(
-        f"<div class='botname'>ANALYST_BOT <span>{datetime.now().strftime('%I:%M:%S')}</span></div>",
-        unsafe_allow_html=True,
-    )
     if not status["ok"]:
         st.error(f"Index unavailable: {status.get('error')}. "
                  "Build it with `python -m indexing.build_index`.")
