@@ -248,19 +248,25 @@ def _answer_footer(meta: dict):
     """Evidence summary under a bot answer: # reviews, themes, sources (w/ %)."""
     if not meta or not meta.get("evidence_count"):
         return
-    n = meta["evidence_count"]
+    read_n = meta["evidence_count"]
+    base = meta.get("analysis_base", 0)
     total = meta.get("index_total", 0)
+    # Lead with the TRUE analysis base (all reviews in the relevant themes),
+    # with the full-dataset theme counts; the snippet sample is secondary.
     themes = " · ".join(f"{t['theme']} {t['n']} ({t['pct']}%)"
-                        for t in meta.get("theme_breakdown", [])[:5])
+                        for t in meta.get("theme_full", [])[:5])
     sources = " · ".join(f"{s['source']} {s['n']} ({s['pct']}%)"
                          for s in meta.get("source_breakdown", []))
     html = (
         "<div class='evidence'>"
         f"<div class='eh'>📊 ANALYSIS SUMMARY</div>"
-        f"<div class='er'><b>Read for this answer:</b> the {n} most relevant reviews"
-        + (f" &nbsp;(out of {total:,} on-theme reviews searched)" if total else "") + "</div>"
-        + (f"<div class='er'><b>Themes covered:</b> {themes}</div>" if themes else "")
-        + (f"<div class='er'><b>Sources:</b> {sources}</div>" if sources else "")
+        + (f"<div class='er'><b>Based on {base:,} reviews</b> about this question's "
+           f"themes" + (f" &nbsp;(of {total:,} on-theme total)" if total else "") + "</div>"
+           if base else "")
+        + (f"<div class='er'><b>Themes:</b> {themes}</div>" if themes else "")
+        + (f"<div class='er'><b>Sources (sample):</b> {sources}</div>" if sources else "")
+        + f"<div class='er' style='opacity:.7'>↳ {read_n} most representative reviews "
+          "read in detail to write the answer</div>"
         + "</div>"
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -317,7 +323,8 @@ def view_terminal():
         live.empty()
         st.markdown(result["answer"])
         meta = {k: result.get(k) for k in
-                ("evidence_count", "index_total", "theme_breakdown", "source_breakdown")}
+                ("evidence_count", "analysis_base", "index_total",
+                 "theme_full", "theme_breakdown", "source_breakdown")}
         _answer_footer(meta)
 
     st.session_state.last_trace = steps

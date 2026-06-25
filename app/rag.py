@@ -276,7 +276,19 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     step("🏷️ Main themes in these reviews: "
          + ", ".join(_readable_theme(t) for t in top_themes))
 
-    # Breakdown of the analyzed reviews, with counts + % — shown under the answer.
+    # The TRUE analysis base: every review in the themes this question is about
+    # (from the full-dataset aggregates), not just the snippets read for wording.
+    td_map = {t["theme"]: t for t in agg.get("theme_distribution", [])}
+    analysis_base = sum(td_map[t]["n"] for t in top_themes if t in td_map)
+    theme_full = [
+        {"theme": _readable_theme(t), "n": td_map[t]["n"],
+         "pct": round(td_map[t]["n"] / analysis_base * 100) if analysis_base else 0}
+        for t in top_themes if t in td_map
+    ]
+    step(f"🧮 Answer is grounded in {analysis_base} reviews across "
+         f"{len(top_themes)} themes (read {len(hits)} in detail)")
+
+    # Breakdown of the snippets actually read, with counts + % — shown under answer.
     n_hits = len(hits)
     theme_breakdown = [
         {"theme": _readable_theme(t), "n": c, "pct": round(c / n_hits * 100)}
@@ -361,6 +373,8 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "citations": [],
         "themes_analyzed": top_themes,
         "evidence_count": len(hits),
+        "analysis_base": analysis_base,
+        "theme_full": theme_full,
         "theme_breakdown": theme_breakdown,
         "source_breakdown": source_breakdown,
         "index_total": _collection().count(),
