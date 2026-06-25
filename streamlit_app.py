@@ -120,8 +120,9 @@ def _warm():
         return {"ok": False, "error": str(exc)}
 
 
-@st.cache_data(show_spinner=False)
 def _pipeline_stats():
+    # Not cached: these are instant SQLite/Chroma counts and must always reflect
+    # the deployed data (a stale cache once showed 1,000 after a 1,659 update).
     import sqlite3
     from ingestion.db import DEFAULT_DB_PATH
     out = {"sources": [], "raw": 0, "structured": 0, "indexed": 0}
@@ -142,7 +143,6 @@ def _pipeline_stats():
     return out
 
 
-@st.cache_data(show_spinner=False)
 def _agg():
     try:
         return rag.aggregates()
