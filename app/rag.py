@@ -234,20 +234,41 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     step(f"🤖 Asking the Groq LLM to summarize {len(hits)} reviews into one answer…")
     _t2 = _t.time()
     try:
+        import re
         import groq
         if not os.environ.get("GROQ_API_KEY"):
             raise RuntimeError("GROQ_API_KEY not set")
         client = groq.Groq()
-        resp = client.chat.completions.create(
-            model=_used_model,
-            temperature=0.3,
-            max_tokens=300,
-            messages=[
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        text = resp.choices[0].message.content or ""
+
+        def _call():
+            resp = client.chat.completions.create(
+                model=_used_model,
+                temperature=0.3,
+                max_tokens=300,
+                messages=[
+                    {"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            return resp.choices[0].message.content or ""
+
+        # Groq free tier caps at 6000 tokens/min; on a 429, wait the suggested
+        # time and retry (up to twice) instead of failing the whole answer.
+        text = ""
+        for attempt in range(3):
+            try:
+                text = _call()
+                break
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc)
+                if "rate_limit" not in msg and "429" not in msg:
+                    raise
+                if attempt == 2:
+                    raise
+                m = re.search(r"try again in ([\d.]+)s", msg)
+                wait = min(float(m.group(1)) + 0.5, 15) if m else 6.0
+                step(f"⏳ Hit the per-minute rate limit — waiting {wait:.0f}s and retrying…")
+                _t.sleep(wait)
         step(f"✅ Answer ready — built from {len(hits)} reviews "
              f"({(_t.time()-_t2)*1000:.0f} ms)")
     except Exception as exc:  # noqa: BLE001 - surface a clear error, still return citations
