@@ -109,17 +109,9 @@ def _pipeline_stats():
 
 # ---- Sidebar: the real backend pipeline, with live counts ----
 with st.sidebar:
-    st.subheader("📊 Knowledge base")
     ps = _pipeline_stats()
-    st.markdown(
-        f"""
-- **{ps['raw']:,}** reviews scraped from 5 sources
-- **{ps['structured']:,}** analyzed by the Groq LLM
-- **{ps['indexed']:,}** searchable in the vector index
-"""
-    )
     if ps["sources"]:
-        st.caption("Reviews by source:")
+        st.subheader("Reviews by source")
         for src, n in ps["sources"]:
             st.markdown(f"&nbsp;&nbsp;`{src}` — **{n:,}**", unsafe_allow_html=True)
 
