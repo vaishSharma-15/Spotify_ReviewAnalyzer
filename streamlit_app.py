@@ -103,6 +103,16 @@ st.markdown(
       .logline { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text);
                  padding:3px 0; border-bottom:1px dashed var(--stroke); }
       .logline .t { color:var(--primary-bright); }
+
+      /* evidence summary footer under a bot answer */
+      .evidence { margin-top:12px; padding:11px 14px; background:var(--panel);
+                  border:1px solid var(--stroke); border-left:3px solid var(--primary);
+                  border-radius:10px; }
+      .evidence .eh { font-family:'JetBrains Mono',monospace; color:var(--primary-bright);
+                      font-size:11px; font-weight:700; letter-spacing:.08em; margin-bottom:6px; }
+      .evidence .er { font-size:12.5px; color:var(--dim); line-height:1.7;
+                      font-family:'JetBrains Mono',monospace; }
+      .evidence .er b { color:var(--text); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -228,6 +238,28 @@ def _bar(label, value, total, num=None):
     )
 
 
+def _answer_footer(meta: dict):
+    """Evidence summary under a bot answer: # reviews, themes, sources (w/ %)."""
+    if not meta or not meta.get("evidence_count"):
+        return
+    n = meta["evidence_count"]
+    total = meta.get("index_total", 0)
+    themes = " · ".join(f"{t['theme']} {t['n']} ({t['pct']}%)"
+                        for t in meta.get("theme_breakdown", [])[:5])
+    sources = " · ".join(f"{s['source']} {s['n']} ({s['pct']}%)"
+                         for s in meta.get("source_breakdown", []))
+    html = (
+        "<div class='evidence'>"
+        f"<div class='eh'>📊 ANALYSIS SUMMARY</div>"
+        f"<div class='er'><b>Reviews analyzed:</b> {n}"
+        + (f" &nbsp;of&nbsp; {total:,} indexed" if total else "") + "</div>"
+        + (f"<div class='er'><b>Themes:</b> {themes}</div>" if themes else "")
+        + (f"<div class='er'><b>Sources:</b> {sources}</div>" if sources else "")
+        + "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 # ----------------------------------------------------------------------------
 # VIEW: TERMINAL (chat)
 # ----------------------------------------------------------------------------
@@ -252,6 +284,8 @@ def view_terminal():
     for m in st.session_state.messages:
         with st.chat_message(m["role"], avatar="🟢" if m["role"] == "assistant" else "🧑"):
             st.markdown(m["content"])
+            if m.get("meta"):
+                _answer_footer(m["meta"])
 
     typed = st.chat_input("> ask ANALYST_BOT about Spotify music discovery…")
     question = st.session_state.pop("_pending", None) or typed
@@ -276,9 +310,13 @@ def view_terminal():
             result = rag.answer(question, on_step=_on_step)
         live.empty()
         st.markdown(result["answer"])
+        meta = {k: result.get(k) for k in
+                ("evidence_count", "index_total", "theme_breakdown", "source_breakdown")}
+        _answer_footer(meta)
 
     st.session_state.last_trace = steps
-    st.session_state.messages.append({"role": "assistant", "content": result["answer"]})
+    st.session_state.messages.append(
+        {"role": "assistant", "content": result["answer"], "meta": meta})
     st.rerun()
 
 

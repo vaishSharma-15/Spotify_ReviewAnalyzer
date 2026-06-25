@@ -211,6 +211,18 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     step("🏷️ Main themes in these reviews: "
          + ", ".join(_readable_theme(t) for t in top_themes))
 
+    # Breakdown of the analyzed reviews, with counts + % — shown under the answer.
+    n_hits = len(hits)
+    theme_breakdown = [
+        {"theme": _readable_theme(t), "n": c, "pct": round(c / n_hits * 100)}
+        for t, c in theme_counts.most_common()
+    ]
+    source_counts = Counter((h.get("source") or "unknown") for h in hits)
+    source_breakdown = [
+        {"source": s, "n": c, "pct": round(c / n_hits * 100)}
+        for s, c in source_counts.most_common()
+    ]
+
     # Feed the model the broad evidence set so it analyzes the theme as a whole.
     evidence = "\n".join(
         f"[{i+1}] (theme={h['theme']}, sentiment={h['sentiment']}) "
@@ -281,6 +293,9 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "citations": [],
         "themes_analyzed": top_themes,
         "evidence_count": len(hits),
+        "theme_breakdown": theme_breakdown,
+        "source_breakdown": source_breakdown,
+        "index_total": _collection().count(),
         "aggregates": agg,
         "trace": trace,
     }
