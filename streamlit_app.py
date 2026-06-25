@@ -46,8 +46,13 @@ st.markdown(
       html, body, [class*="css"] { font-family:'Plus Jakarta Sans',system-ui,sans-serif; }
       .stApp { background:var(--bg); }
       .block-container { padding-top:1rem; padding-bottom:6rem; max-width:1100px; }
-      /* hide default streamlit chrome */
-      #MainMenu, footer, header[data-testid="stHeader"] { visibility:hidden; }
+      /* hide default streamlit chrome — but KEEP the header so the sidebar
+         expand/collapse arrow stays clickable. Just make it transparent. */
+      #MainMenu, footer { visibility:hidden; }
+      header[data-testid="stHeader"] { background:transparent; }
+      /* keep the sidebar collapse/expand control visible & on top */
+      [data-testid="stSidebarCollapsedControl"],
+      [data-testid="collapsedControl"] { visibility:visible !important; z-index:1000; }
 
       /* sidebar */
       section[data-testid="stSidebar"] { background:#0e0e0e; border-right:1px solid var(--stroke); }
