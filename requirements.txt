@@ -22,3 +22,5 @@ chromadb==0.6.3             # local vector store for retrieval
 fastapi>=0.110             # backend API (local/dev)
 uvicorn>=0.29              # ASGI server (local/dev)
 streamlit>=1.32           # combined frontend+backend app (deployable)
+altair>=5.0               # charts in the Analytics/Sentiment views
+pandas>=1.5               # dataframes for the charts

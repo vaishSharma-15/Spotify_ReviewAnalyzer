@@ -284,6 +284,62 @@ def _bar(label, value, total, num=None):
     )
 
 
+# ---- Altair charts (bundled with Streamlit — no extra dependency) ----
+GREEN = "#1DB954"
+GREEN_BRIGHT = "#53e076"
+AXIS = "#869585"
+
+
+def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT):
+    """Horizontal bar chart, dark-themed, sorted by value."""
+    import altair as alt
+    import pandas as pd
+    df = pd.DataFrame(data)
+    if df.empty:
+        st.info("No data yet.")
+        return
+    chart = (
+        alt.Chart(df)
+        .mark_bar(cornerRadiusEnd=4, color=color)
+        .encode(
+            x=alt.X(f"{value_field}:Q", title=value_title,
+                    axis=alt.Axis(grid=True, gridColor="#2a2a2a")),
+            y=alt.Y(f"{label_field}:N", sort="-x", title=None),
+            tooltip=[alt.Tooltip(f"{label_field}:N", title="Theme"),
+                     alt.Tooltip(f"{value_field}:Q", title=value_title)],
+        )
+        .properties(height=max(220, 26 * len(df)))
+        .configure_view(strokeWidth=0)
+        .configure_axis(labelColor=AXIS, titleColor=AXIS, labelFontSize=12)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def _donut_chart(data, label_field, value_field):
+    """Donut chart for source / category share."""
+    import altair as alt
+    import pandas as pd
+    df = pd.DataFrame(data)
+    if df.empty:
+        st.info("No data yet.")
+        return
+    chart = (
+        alt.Chart(df)
+        .mark_arc(innerRadius=70, stroke="#131313", strokeWidth=2)
+        .encode(
+            theta=alt.Theta(f"{value_field}:Q", stack=True),
+            color=alt.Color(f"{label_field}:N",
+                            scale=alt.Scale(scheme="greens"),
+                            legend=alt.Legend(title=None, labelColor=AXIS, orient="right")),
+            tooltip=[alt.Tooltip(f"{label_field}:N", title="Source"),
+                     alt.Tooltip(f"{value_field}:Q", title="Reviews")],
+        )
+        .properties(height=300)
+        .configure_view(strokeWidth=0)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
 def _answer_footer(meta: dict):
     """Evidence summary under a bot answer: # reviews, themes, sources (w/ %)."""
     if not meta or not meta.get("evidence_count"):
@@ -393,34 +449,58 @@ def view_analytics():
                "(the DB now stores the final curated set).")
     st.write("")
 
-    # --- Reviews by source ---
-    st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
-    src_total = sum(n for _, n in ps["sources"]) or 1
-    for src, n in ps["sources"]:
-        _bar(_source_label(src), n, src_total, num=f"{n:,} · {round(n/src_total*100)}%")
-    st.write("")
-
-    # --- Theme distribution ---
-    st.markdown("<div class='viewhead'>// THEME DISTRIBUTION</div>", unsafe_allow_html=True)
-    st.caption("What users complain about, across all analyzed reviews.")
     td = agg.get("theme_distribution", [])
-    total = sum(t["n"] for t in td) or 1
-    for t in td[:18]:
-        _bar(_readable(t["theme"]), t["n"], total,
-             num=f"{t['n']} · {round(t['pct'])}%")
     if not td:
         st.info("No aggregates yet — run `python -m aggregation.aggregate`.")
         return
+
+    # --- KPI metrics row ---
+    total = sum(t["n"] for t in td) or 1
+    top = max(td, key=lambda t: t["n"])
+    overall_neg = round(sum(t["n"] * t.get("neg_pct", 0) for t in td) / total)
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Reviews analyzed", f"{total:,}")
+    k2.metric("Discovery themes", f"{len(td)}")
+    k3.metric("Top complaint", _readable(top["theme"]).title(), f"{round(top['pct'])}%")
+    k4.metric("Negative overall", f"{overall_neg}%")
     st.write("")
 
-    # --- User segments ---
-    sd = agg.get("segment_distribution", [])
-    if sd:
+    # --- Theme distribution (bar chart) ---
+    st.markdown("<div class='viewhead'>// THEME DISTRIBUTION</div>", unsafe_allow_html=True)
+    st.caption("What users complain about, across all analyzed reviews.")
+    _hbar_chart(
+        [{"Theme": _readable(t["theme"]).title(), "Reviews": t["n"]} for t in td],
+        "Theme", "Reviews", "Reviews")
+
+    # --- Two columns: sources donut + user segments ---
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
+        _donut_chart(
+            [{"Source": _source_label(s), "Reviews": n} for s, n in ps["sources"]],
+            "Source", "Reviews")
+    with c2:
         st.markdown("<div class='viewhead'>// USER SEGMENTS</div>", unsafe_allow_html=True)
-        seg_total = sum(s["n"] for s in sd) or 1
-        for s in sd[:14]:
-            _bar(_readable(s["user_segment"]), s["n"], seg_total,
-                 num=f"{s['n']} · {round(s.get('pct_of_reviews', 0))}%")
+        sd = agg.get("segment_distribution", [])
+        _hbar_chart(
+            [{"Segment": _readable(s["user_segment"]).title(), "Reviews": s["n"]}
+             for s in sd[:10]],
+            "Segment", "Reviews", "Reviews", color=GREEN)
+
+    # --- Top frustrations (Q6) ---
+    tf = agg.get("top_frustrations", [])
+    if tf:
+        st.markdown("<div class='viewhead'>// TOP PAIN POINTS (by frequency × severity)</div>",
+                    unsafe_allow_html=True)
+        st.caption("The unmet needs that surface most consistently across reviews.")
+        for r in tf[:8]:
+            frus = (r.get("frustration") or "").strip().capitalize()
+            st.markdown(
+                f"<div class='logline'><span class='t'>#{r['rank']}</span> "
+                f"{frus[:110]}  "
+                f"<span style='color:#869585'>· {_readable(r['theme'])} · "
+                f"{r['n']}× · severity {r.get('avg_severity', 0):.1f}</span></div>",
+                unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------
@@ -430,11 +510,13 @@ def view_sentiment():
     st.markdown("<div class='viewhead'>// SENTIMENT BY THEME</div>", unsafe_allow_html=True)
     st.caption("Share of negative sentiment within each complaint theme.")
     td = agg.get("theme_distribution", [])
-    for t in sorted(td, key=lambda r: r.get("neg_pct", 0), reverse=True)[:14]:
-        _bar(_readable(t["theme"]), round(t.get("neg_pct", 0)), 100,
-             num=f"{round(t.get('neg_pct', 0))}% neg")
     if not td:
         st.info("No aggregates yet — run `python -m aggregation.aggregate`.")
+        return
+    _hbar_chart(
+        [{"Theme": _readable(t["theme"]).title(), "% negative": round(t.get("neg_pct", 0))}
+         for t in sorted(td, key=lambda r: r.get("neg_pct", 0), reverse=True)],
+        "Theme", "% negative", "% negative", color="#ffb4ab")
 
 
 # ----------------------------------------------------------------------------
