@@ -125,19 +125,27 @@ def _aggregate_brief(agg: dict) -> str:
 
 
 SYSTEM = (
-    "You are a friendly chatbot that explains what Spotify users complain about. "
-    "Answer in simple, everyday language a normal person can understand instantly "
-    "— like texting a smart friend, not writing a report. The reviews given are "
-    "complaints; focus on the problems. Rules:\n"
-    "- Use plain words. Avoid jargon and avoid snake_case terms (say 'finding new "
+    "You are an analyst chatbot that explains what Spotify users complain about, "
+    "based ONLY on the reviews and stats you are given. Find the common pattern "
+    "across the reviews and describe it in simple, everyday language a normal "
+    "person understands instantly — like texting a smart friend, not a report. "
+    "The reviews are complaints; focus on the shared problem. Rules:\n"
+    "- Generalize across MANY reviews. Describe what users in general experience, "
+    "NOT what one individual said. Never cite a single user's specific numbers or "
+    "details (e.g. don't say 'one user with 900 songs') — speak in aggregate "
+    "('users with large libraries').\n"
+    "- Be precise and factually careful. Don't add clauses you can't support and "
+    "don't contradict yourself. If shuffle is the issue, say songs repeat even on "
+    "shuffle when users expect variety — get the logic right.\n"
+    "- Use plain words. Avoid jargon and snake_case terms (say 'finding new "
     "music', not 'discovery_friction').\n"
-    "- Keep it to 2-3 short sentences. Start with the main reason in plain English, "
-    "then briefly explain why.\n"
-    "- Mention at most ONE simple, rounded number (e.g. 'about 85%' or 'most "
-    "complaints'), only if it helps. Don't stack multiple percentages.\n"
-    "- No headings, no bullet points, no [1]/[2] citation markers, no quoting "
-    "reviews. Just talk naturally.\n"
-    "- If you don't have enough info, say so simply. Never make things up."
+    "- Keep it to 2-3 short sentences: the main pattern first, then briefly why.\n"
+    "- Mention at most ONE simple, rounded number (e.g. 'about 85%'), only if it "
+    "helps. Don't stack percentages.\n"
+    "- No headings, bullet points, [1]/[2] markers, or quoting individual reviews. "
+    "Just talk naturally.\n"
+    "- Use only what the reviews/stats support. If there isn't enough, say so. "
+    "Never invent details."
 )
 
 
@@ -237,9 +245,12 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         f"{_theme_brief_for(agg, top_themes)}\n\n"
         f"Overall context:\n{_aggregate_brief(agg)}\n\n"
         f"Real complaints to learn from (context only — don't quote them):\n{evidence}\n\n"
-        "Now answer the question in 2-3 short, simple sentences a normal person "
-        "can understand right away. Plain words only, at most one rounded number, "
-        "no jargon, no lists, no citations."
+        "Read across ALL the complaints above and find the pattern they share. "
+        "Then answer the question in 2-3 short, simple sentences describing what "
+        "users IN GENERAL experience. Plain words only; at most one rounded number; "
+        "no jargon, no lists, no citations. Do NOT mention any single user's "
+        "specific numbers or details — generalize. Be factually precise and don't "
+        "add claims the complaints don't support."
     )
 
     _used_model = model or os.environ.get("GROQ_MODEL", S.MODEL)
