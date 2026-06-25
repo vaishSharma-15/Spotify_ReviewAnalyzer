@@ -265,8 +265,6 @@ def _answer_footer(meta: dict):
            if base else "")
         + (f"<div class='er'><b>Themes:</b> {themes}</div>" if themes else "")
         + (f"<div class='er'><b>Sources (sample):</b> {sources}</div>" if sources else "")
-        + f"<div class='er' style='opacity:.7'>↳ {read_n} most representative reviews "
-          "read in detail to write the answer</div>"
         + "</div>"
     )
     st.markdown(html, unsafe_allow_html=True)
