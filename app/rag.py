@@ -33,7 +33,7 @@ OUT_OF_SCOPE_MSG = (
     "discovery and reducing repetitive listening behavior only. Thank you 🙏"
 )
 # Groq free tier caps a single request at ~6000 tokens/min, so we feed a
-# bounded, truncated sample. The answer still reflects ALL 1,000 reviews via the
+# bounded, truncated sample. The answer still reflects ALL reviews via the
 # Phase 3 aggregate percentages; the sample provides representative citations.
 ANALYZE_K = 12     # reviews fed to the model per request
 SNIPPET_CHARS = 240  # max chars per review in the prompt
@@ -192,7 +192,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
          f"reading the {len(hits)} most relevant {sentiment} ones "
          f"({(_t.time()-_t1)*1000:.0f} ms)")
     agg = aggregates()
-    step(f"📊 Loaded stats over {agg.get('meta', {}).get('n_reviews', '1,000')} "
+    step(f"📊 Loaded stats over {agg.get('meta', {}).get('n_reviews', '1,658')} "
          f"analyzed reviews")
 
     # Out-of-scope guard: if nothing is semantically close, the question isn't
@@ -221,7 +221,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         f"Question: {question}\n\n"
         f"Most relevant complaint topics: "
         f"{', '.join(_readable_theme(t) for t in top_themes)}\n\n"
-        f"Topic stats (from 1,000 reviews):\n"
+        f"Topic stats (from {agg.get('meta', {}).get('n_reviews', '1,658')} reviews):\n"
         f"{_theme_brief_for(agg, top_themes)}\n\n"
         f"Overall context:\n{_aggregate_brief(agg)}\n\n"
         f"Real complaints to learn from (context only — don't quote them):\n{evidence}\n\n"
