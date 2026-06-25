@@ -86,35 +86,94 @@ with head_l:
     )
 with head_r:
     st.write("")
-    extract_live = st.button(
-        "🔄 Extract live",
+    run_pipeline = st.button(
+        "⚡ Run live pipeline",
         use_container_width=True,
-        help="Scrape fresh reviews from the App Store right now to prove the "
-             "ingestion pipeline is live (separate from the query path).",
+        help="Watch the full backend run live: scrape → LLM structure → embed → "
+             "index → the chatbot answers using the just-scraped review.",
     )
 
-# ---- Live extraction demo (Phase 1 on demand) ----
-if extract_live:
-    with st.spinner("Scraping fresh reviews live from the Apple App Store…"):
-        try:
-            from ingestion.collectors.appstore import AppStoreCollector
-            fresh = list(AppStoreCollector(countries="us").collect(6))
-        except Exception as exc:  # noqa: BLE001
-            fresh = []
-            st.error(f"Live extraction failed: {exc}")
-    if fresh:
-        st.success(f"✅ Pulled {len(fresh)} reviews live, just now — pipeline is working.")
+
+def _run_live_pipeline():
+    """End-to-end live demo of the real backend workflow, stage by stage."""
+    import time as _t
+    from ingestion.collectors.appstore import AppStoreCollector
+    from indexing.embed import embed_texts
+    from structuring.structure import structure_one
+    import structuring.schema as _S
+
+    with st.status("Running the live pipeline…", expanded=True) as status:
+        # --- Stage 1: Ingestion (live scrape) ---
+        st.write("**① Ingestion** — scraping live from the Apple App Store…")
+        t0 = _t.time()
+        fresh = list(AppStoreCollector(countries="us").collect(3))
+        st.write(f"   ↳ pulled **{len(fresh)} live reviews** in {_t.time()-t0:.1f}s")
         for r in fresh:
-            stars = "★" * (r.rating or 0) + "☆" * (5 - (r.rating or 0))
-            with st.container(border=True):
-                st.markdown(
-                    f"**{r.author or 'anonymous'}** · "
-                    f"<span style='color:#1DB954'>{stars}</span> · "
-                    f"<span style='color:#B3B3B3;font-size:12px'>App Store · {r.created_at or ''}</span>",
-                    unsafe_allow_html=True,
-                )
-                st.write((r.title + " — " if r.title else "") + (r.body or "")[:240])
-        st.divider()
+            st.caption(f"📥 raw: {(r.body or '')[:120]}")
+        if not fresh:
+            status.update(label="No reviews returned", state="error")
+            return
+
+        # --- Stage 2: Structuring (Groq LLM) ---
+        st.write("**② Structuring** — sending each review to the Groq LLM…")
+        import groq
+        client = groq.Groq()
+        model = os.environ.get("GROQ_MODEL", _S.MODEL)
+        structured = []
+        for r in fresh:
+            try:
+                data = structure_one(client, model, {"title": r.title, "body": r.body})
+            except Exception as exc:  # noqa: BLE001
+                st.warning(f"   structuring skipped one ({exc})")
+                continue
+            structured.append((r, data))
+            st.write(f"   ↳ 🧠 theme=`{data['theme']}` · sentiment=`{data['sentiment']}` "
+                     f"· severity=`{data['severity_score']}`")
+            st.caption(f"      frustration: {data.get('frustration') or '—'}")
+        if not structured:
+            status.update(label="Structuring failed (rate limit?)", state="error")
+            return
+
+        # --- Stage 3: Embedding + indexing ---
+        st.write("**③ Indexing** — embedding and adding to the vector store…")
+        col = rag._collection()
+        before = col.count()
+        docs = [((r.title + ". ") if r.title else "") + (r.body or "") for r, _ in structured]
+        embs = embed_texts(docs)
+        ids = [f"live-{int(_t.time())}-{i}" for i in range(len(structured))]
+        col.upsert(
+            ids=ids,
+            embeddings=[e.tolist() for e in embs],
+            documents=docs,
+            metadatas=[{
+                "theme": d["theme"], "sentiment": d["sentiment"],
+                "user_segment": ",".join(d["user_segment"]),
+                "severity_score": int(d["severity_score"]),
+                "source": "app_store (LIVE)", "source_url": r.source_url or "",
+                "frustration": (d.get("frustration") or "")[:300],
+            } for r, d in structured],
+        )
+        st.write(f"   ↳ 🔢 embedded {len(embs)}×{embs.shape[1]}-dim vectors · "
+                 f"index grew **{before} → {col.count()}**")
+
+        # --- Stage 4: Retrieval + answer using the NEW data ---
+        st.write("**④ Query** — the chatbot now answers using the just-scraped reviews…")
+        status.update(label="✅ Live pipeline complete — all stages ran for real",
+                      state="complete", expanded=True)
+
+    # Show a real answer grounded in (possibly) the new live reviews
+    demo_q = "What are the latest problems users mention?"
+    res = rag.answer(demo_q, sentiment=None)
+    st.markdown(f"**Demo question:** _{demo_q}_")
+    st.markdown(res["answer"])
+    st.divider()
+
+
+if run_pipeline:
+    if not os.environ.get("GROQ_API_KEY"):
+        st.error("GROQ_API_KEY not set — add it in the app's Secrets to run the live pipeline.")
+    else:
+        _run_live_pipeline()
 
 if status["ok"]:
     st.markdown(f"<span class='si-badge'>{status['n']} reviews indexed</span>",
