@@ -202,12 +202,6 @@ with st.sidebar:
         "<div class='name'>Spotify<span class='g'> Analyst</span></div></div>",
         unsafe_allow_html=True,
     )
-    for name, icon in NAV:
-        active = st.session_state.view == name
-        if st.button(f"{icon}  {name}", key=f"nav_{name}",
-                     use_container_width=True, type="primary" if active else "secondary"):
-            st.session_state.view = name
-            st.rerun()
     st.markdown(
         "<div class='sess'>👤 <b>USER_SESSION_01</b>ADMINISTRATOR</div>",
         unsafe_allow_html=True,
@@ -228,6 +222,18 @@ st.markdown(
     f"</div>",
     unsafe_allow_html=True,
 )
+
+# ----------------------------------------------------------------------------
+# Top navigation (always visible — independent of the sidebar)
+# ----------------------------------------------------------------------------
+nav_cols = st.columns(len(NAV))
+for col, (name, icon) in zip(nav_cols, NAV):
+    active = st.session_state.view == name
+    if col.button(f"{icon} {name}", key=f"nav_{name}",
+                  use_container_width=True, type="primary" if active else "secondary"):
+        st.session_state.view = name
+        st.rerun()
+st.write("")
 
 
 def _readable(t: str) -> str:
