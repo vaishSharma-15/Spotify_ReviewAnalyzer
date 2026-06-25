@@ -192,7 +192,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
          f"reading the {len(hits)} most relevant {sentiment} ones "
          f"({(_t.time()-_t1)*1000:.0f} ms)")
     agg = aggregates()
-    step(f"📊 Loaded stats over {agg.get('meta', {}).get('n_reviews', '1,659')} "
+    step(f"📊 Loaded stats over {agg.get('meta', {}).get('n_reviews', '1,401')} "
          f"analyzed reviews")
 
     # Out-of-scope guard: if nothing is semantically close, the question isn't
@@ -233,7 +233,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         f"Question: {question}\n\n"
         f"Most relevant complaint topics: "
         f"{', '.join(_readable_theme(t) for t in top_themes)}\n\n"
-        f"Topic stats (from {agg.get('meta', {}).get('n_reviews', '1,659')} reviews):\n"
+        f"Topic stats (from {agg.get('meta', {}).get('n_reviews', '1,401')} reviews):\n"
         f"{_theme_brief_for(agg, top_themes)}\n\n"
         f"Overall context:\n{_aggregate_brief(agg)}\n\n"
         f"Real complaints to learn from (context only — don't quote them):\n{evidence}\n\n"

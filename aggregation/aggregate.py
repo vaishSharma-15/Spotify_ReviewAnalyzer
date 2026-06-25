@@ -27,6 +27,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from ingestion.db import DEFAULT_DB_PATH
+from structuring.schema import DISCOVERY_THEMES
 
 LOW_N = 5  # cells with fewer than this are flagged low_n (edge case A2)
 
@@ -64,9 +65,14 @@ CREATE TABLE agg_meta (
 
 
 def fetch_ok(conn) -> list[sqlite3.Row]:
+    # Only the discovery-relevant themes (the six key questions); catch-all
+    # themes like app_performance / pricing are excluded from the deliverable.
+    placeholders = ",".join("?" * len(DISCOVERY_THEMES))
     return conn.execute(
-        """SELECT theme, sentiment, frustration, user_segment, severity_score
-           FROM structured_reviews WHERE status='ok'"""
+        f"""SELECT theme, sentiment, frustration, user_segment, severity_score
+            FROM structured_reviews
+            WHERE status='ok' AND theme IN ({placeholders})""",
+        DISCOVERY_THEMES,
     ).fetchall()
 
 

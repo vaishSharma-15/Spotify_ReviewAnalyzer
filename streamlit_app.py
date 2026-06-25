@@ -135,11 +135,17 @@ def _pipeline_stats():
     # the deployed data (a stale cache once showed 1,000 after a 1,659 update).
     import sqlite3
     from ingestion.db import DEFAULT_DB_PATH
-    out = {"sources": [], "raw": 0, "structured": 0, "indexed": 0}
+    out = {"sources": [], "raw": 0, "structured": 0, "on_theme": 0, "indexed": 0}
     try:
         c = sqlite3.connect(DEFAULT_DB_PATH)
+        from structuring.schema import DISCOVERY_THEMES
         out["raw"] = c.execute("SELECT COUNT(*) FROM raw_reviews").fetchone()[0]
         out["structured"] = c.execute("SELECT COUNT(*) FROM structured_reviews").fetchone()[0]
+        ph = ",".join("?" * len(DISCOVERY_THEMES))
+        out["on_theme"] = c.execute(
+            f"SELECT COUNT(*) FROM structured_reviews WHERE status='ok' AND theme IN ({ph})",
+            DISCOVERY_THEMES,
+        ).fetchone()[0]
         out["sources"] = c.execute(
             "SELECT source, COUNT(*) FROM raw_reviews GROUP BY source ORDER BY 2 DESC"
         ).fetchall()
@@ -329,9 +335,9 @@ def view_analytics():
     st.caption("From raw scrape to the reviews actually powering the chatbot.")
     cards = [
         ("Scraped (raw)", "~5,952", "pulled from 5 sources"),
-        ("Theme-relevant", "~1,919", "matched discovery themes"),
         ("Curated", f"{ps['raw']:,}", "negative · no emoji"),
         ("Analyzed by LLM", f"{ps['structured']:,}", "theme / sentiment / severity"),
+        ("On-question themes", f"{ps['on_theme']:,}", "the 12 discovery themes"),
         ("Indexed (in use)", f"{ps['indexed']:,}", "searchable vectors"),
     ]
     cols = st.columns(len(cards))

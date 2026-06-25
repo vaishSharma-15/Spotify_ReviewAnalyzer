@@ -41,6 +41,20 @@ THEMES = [
     "other",
 ]
 
+# The themes that actually answer the six key questions. The catch-all themes
+# below are tracked during structuring (so reviews get a valid bucket) but are
+# EXCLUDED from the aggregates + vector index, so the chatbot/Analytics only
+# ever reason over discovery-relevant reviews.
+NON_DISCOVERY_THEMES = [
+    "playback_quality",
+    "app_performance",
+    "pricing_subscription",
+    "ads_experience",
+    "account_access",
+    "other",
+]
+DISCOVERY_THEMES = [t for t in THEMES if t not in NON_DISCOVERY_THEMES]
+
 USER_SEGMENTS = [
     "power_user", "casual_listener", "new_user", "returning_user",
     "free_tier", "premium", "family_plan", "student_plan",

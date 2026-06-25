@@ -63,7 +63,8 @@ OFFLINE (build once)                          REAL-TIME (per question)
 | **Filtered** (theme-relevant) | ~1,919 | Kept only reviews about discovery themes |
 | **Curated** | **1,659** | Removed emojis + positive reviews → negative, on-theme only |
 | **Structured** (Groq LLM) | **1,659** | Labeled with theme / sentiment / segment / severity |
-| **Indexed** (Chroma) | **1,659** | Embedded into a searchable vector store |
+| **On-question themes** | **1,401** | Kept only the 12 discovery themes (dropped app/pricing/ads/etc.) |
+| **Indexed** (Chroma) | **1,401** | Embedded into a searchable vector store |
 
 **Sources** (current curated set): `social` (1,269), `app_store` (182),
 `play_store` (156), `community_forum` (36), `reddit` (16).
@@ -190,8 +191,8 @@ streams the actual backend stages for every question in real time:
 ```
 🔎 Reading your question…
 🧬 Turned it into a 384-dim meaning vector (… ms)
-📚 Searched all 1659 indexed reviews → reading the 12 most relevant ones (… ms)
-📊 Loaded stats over 1,659 analyzed reviews
+📚 Searched all 1401 indexed reviews → reading the 12 most relevant ones (… ms)
+📊 Loaded stats over 1,401 analyzed reviews
 🏷️ Main themes in these reviews: discovery friction, recommendation relevance…
 🤖 Asking the Groq LLM to summarize 12 reviews into one answer…
 ✅ Answer ready — built from 12 reviews (… ms)

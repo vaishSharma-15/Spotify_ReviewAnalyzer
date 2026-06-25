@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 from ingestion.db import DEFAULT_DB_PATH
+from structuring.schema import DISCOVERY_THEMES
 from .embed import EMBED_MODEL, embed_texts
 
 # Chroma persists here, next to reviews.db. Sidecar store, not the SoT.
@@ -48,17 +49,22 @@ def get_collection(rebuild: bool = False):
 
 
 def fetch_rows(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    # Index only discovery-relevant themes so the chatbot never retrieves
+    # off-topic reviews (app bugs, pricing, ads, etc.).
+    placeholders = ",".join("?" * len(DISCOVERY_THEMES))
     return conn.execute(
-        """
+        f"""
         SELECT r.id, r.body, r.title, r.source, r.source_url,
                s.theme, s.sentiment, s.user_segment, s.severity_score,
                s.frustration
         FROM structured_reviews s
         JOIN raw_reviews r ON r.id = s.review_id
         WHERE s.status = 'ok'
+          AND s.theme IN ({placeholders})
           AND r.body IS NOT NULL AND length(trim(r.body)) > 0
         ORDER BY r.id
-        """
+        """,
+        DISCOVERY_THEMES,
     ).fetchall()
 
 
