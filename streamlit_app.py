@@ -109,16 +109,13 @@ def _pipeline_stats():
 
 # ---- Sidebar: the real backend pipeline, with live counts ----
 with st.sidebar:
-    st.subheader("⚙️ Backend pipeline")
-    st.caption("The system runs offline, then answers from a pre-built index.")
+    st.subheader("📊 Knowledge base")
     ps = _pipeline_stats()
     st.markdown(
         f"""
-- **① Ingestion** — scraped **{ps['raw']:,}** reviews from 5 sources
-- **② Structuring** — **{ps['structured']:,}** passed through the Groq LLM
-- **③ Aggregation** — theme / sentiment / segment stats computed
-- **④ Indexing** — **{ps['indexed']:,}** vectors in the Chroma store
-- **⑤ Query bot** — retrieves + synthesizes per question (below)
+- **{ps['raw']:,}** reviews scraped from 5 sources
+- **{ps['structured']:,}** analyzed by the Groq LLM
+- **{ps['indexed']:,}** searchable in the vector index
 """
     )
     if ps["sources"]:
