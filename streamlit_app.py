@@ -234,6 +234,20 @@ def _readable(t: str) -> str:
     return (t or "other").replace("_", " ")
 
 
+SOURCE_LABELS = {
+    "app_store": "App Store reviews",
+    "play_store": "Play Store reviews",
+    "reddit": "Reddit discussions",
+    "community_forum": "Community forums",
+    "social": "Social media conversations",
+}
+
+
+def _source_label(s: str) -> str:
+    base = (s or "").replace(" (LIVE)", "").strip()
+    return SOURCE_LABELS.get(base, _readable(s).title())
+
+
 def _bar(label, value, total, num=None):
     pct = (value / total * 100) if total else 0
     st.markdown(
@@ -255,7 +269,7 @@ def _answer_footer(meta: dict):
     # with the full-dataset theme counts; the snippet sample is secondary.
     themes = " · ".join(f"{t['theme']} {t['n']} ({t['pct']}%)"
                         for t in meta.get("theme_full", [])[:5])
-    sources = " · ".join(f"{s['source']} {s['n']} ({s['pct']}%)"
+    sources = " · ".join(f"{_source_label(s['source'])} {s['n']} ({s['pct']}%)"
                          for s in meta.get("source_breakdown", []))
     html = (
         "<div class='evidence'>"
@@ -361,7 +375,7 @@ def view_analytics():
     st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
     src_total = sum(n for _, n in ps["sources"]) or 1
     for src, n in ps["sources"]:
-        _bar(src, n, src_total, num=f"{n:,} · {round(n/src_total*100)}%")
+        _bar(_source_label(src), n, src_total, num=f"{n:,} · {round(n/src_total*100)}%")
     st.write("")
 
     # --- Theme distribution ---
@@ -417,7 +431,7 @@ def view_logs():
     st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
     total = sum(n for _, n in ps["sources"]) or 1
     for src, n in ps["sources"]:
-        _bar(src, n, total, num=f"{n:,}")
+        _bar(_source_label(src), n, total, num=f"{n:,}")
 
 
 # ----------------------------------------------------------------------------
