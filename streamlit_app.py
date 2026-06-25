@@ -125,18 +125,18 @@ with st.sidebar:
         st.caption("Reviews by source:")
         for src, n in ps["sources"]:
             st.markdown(f"&nbsp;&nbsp;`{src}` — **{n:,}**", unsafe_allow_html=True)
-    st.caption("Every question you ask runs stages ① embed → ② vector "
-               "search → ③ aggregates → ④ LLM, shown live under each answer.")
 
-
-def _render_trace(result: dict):
-    """Show the real backend stages that ran for this question."""
-    tr = result.get("trace") or []
-    if not tr:
-        return
-    with st.expander("🔧 How this answer was produced (live backend trace)"):
-        for i, step in enumerate(tr, 1):
-            st.markdown(f"**{i}.** {step}")
+    st.divider()
+    st.subheader("📡 Live activity")
+    st.caption("Watch the backend work in real time as it answers your question.")
+    # Placeholder the query handler streams stages into, live.
+    live_box = st.empty()
+    _last = st.session_state.get("last_trace")
+    if _last:
+        live_box.success("**Last question ran these stages:**\n\n"
+                         + "\n".join(f"- {s}" for s in _last))
+    else:
+        live_box.info("Ask a question to see the pipeline run…")
 
 
 if status["ok"]:
@@ -173,8 +173,6 @@ if not st.session_state.messages:
 for m in st.session_state.messages:
     with st.chat_message(m["role"], avatar="🎧" if m["role"] == "assistant" else "🧑"):
         st.markdown(m["content"])
-        if m.get("trace"):
-            _render_trace({"trace": m["trace"]})
 
 # ---- Input ----
 typed = st.chat_input("Ask about Spotify music discovery…")
@@ -185,12 +183,23 @@ if question:
     with st.chat_message("user", avatar="🧑"):
         st.markdown(question)
     with st.chat_message("assistant", avatar="🎧"):
+        # Stream each backend stage into the sidebar's live-activity box.
+        steps: list[str] = []
+
+        def _on_step(text: str):
+            steps.append(text)
+            live_box.markdown(
+                "**Pipeline running…**\n\n"
+                + "\n".join(f"- {s}" for s in steps)
+            )
+
         with st.spinner("Analyzing reviews…"):
-            result = rag.answer(question)
+            result = rag.answer(question, on_step=_on_step)
+        live_box.success("**Done.** Here's what just ran:\n\n"
+                         + "\n".join(f"- {s}" for s in steps))
         st.markdown(result["answer"])
-        _render_trace(result)
+    st.session_state.last_trace = steps
     st.session_state.messages.append({
         "role": "assistant", "content": result["answer"],
-        "trace": result.get("trace"),
     })
     st.rerun()
