@@ -62,6 +62,12 @@ st.markdown(
       .brand .name { font-size:19px;font-weight:800;color:var(--text);letter-spacing:-.01em; }
       .brand .name .g { color:var(--primary-bright); }
       .navlabel { font-family:'JetBrains Mono',monospace; }
+
+      /* main page heading */
+      .apphead { display:flex; align-items:center; gap:14px; margin:2px 0 14px; }
+      .apphead svg { width:42px; height:42px; flex:0 0 auto; }
+      .apphead h1 { margin:0; font-size:30px; font-weight:800; letter-spacing:-0.02em;
+                    color:var(--text); line-height:1.15; }
       .sess { position:relative; margin-top:18px; padding-top:14px; border-top:1px solid var(--stroke);
               color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:12px; }
       .sess b { color:var(--text); display:block; font-size:13px; letter-spacing:.04em; }
@@ -217,11 +223,6 @@ SPOTIFY_LOGO = (
     "4.949-10.73 2.739z'/></svg>"
 )
 with st.sidebar:
-    st.markdown(
-        f"<div class='brand'>{SPOTIFY_LOGO}"
-        "<div class='name'>Spotify Review<br>Discovery Engine</div></div>",
-        unsafe_allow_html=True,
-    )
     for name, icon in NAV:
         active = st.session_state.view == name
         if st.button(f"{icon}  {name}", key=f"nav_{name}",
@@ -233,6 +234,15 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+
+# ----------------------------------------------------------------------------
+# Main heading (top of the page)
+# ----------------------------------------------------------------------------
+st.markdown(
+    f"<div class='apphead'>{SPOTIFY_LOGO}"
+    "<h1>Spotify Review Discovery Engine</h1></div>",
+    unsafe_allow_html=True,
+)
 
 # ----------------------------------------------------------------------------
 # Top status bar
