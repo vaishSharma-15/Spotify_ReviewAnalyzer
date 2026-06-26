@@ -192,7 +192,7 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 NAV = [("TERMINAL", "🖥️"), ("ANALYTICS", "📈"), ("LOGS", "🕘"),
-       ("SENTIMENT", "🙂"), ("QUERY HISTORY", "🔎")]
+       ("SEVERITY", "🔥"), ("QUERY HISTORY", "🔎")]
 
 SUGGESTIONS = [
     "Why do users struggle to discover new music?",
@@ -521,17 +521,20 @@ def view_analytics():
 # ----------------------------------------------------------------------------
 # VIEW: SENTIMENT
 # ----------------------------------------------------------------------------
-def view_sentiment():
-    st.markdown("<div class='viewhead'>// SENTIMENT BY THEME</div>", unsafe_allow_html=True)
-    st.caption("Share of negative sentiment within each complaint theme.")
+def view_severity():
+    st.markdown("<div class='viewhead'>// SEVERITY BY THEME</div>", unsafe_allow_html=True)
+    st.caption("Average pain level (1–5) per theme — which complaints hurt users most.")
     td = agg.get("theme_distribution", [])
     if not td:
         st.info("No aggregates yet — run `python -m aggregation.aggregate`.")
         return
+    rows = sorted(td, key=lambda r: r.get("avg_severity", 0), reverse=True)
     _hbar_chart(
-        [{"Theme": _readable(t["theme"]).title(), "% negative": round(t.get("neg_pct", 0))}
-         for t in sorted(td, key=lambda r: r.get("neg_pct", 0), reverse=True)],
-        "Theme", "% negative", "% negative", color="#ffb4ab")
+        [{"Theme": _readable(t["theme"]).title(),
+          "Avg severity": round(t.get("avg_severity", 0), 1)} for t in rows],
+        "Theme", "Avg severity", "Avg severity (1–5)", color="#ffb4ab")
+    st.caption("Higher = more severe. A theme with high severity but fewer reviews "
+               "can still be a bigger problem than its volume suggests.")
 
 
 # ----------------------------------------------------------------------------
@@ -573,7 +576,7 @@ VIEWS = {
     "TERMINAL": view_terminal,
     "ANALYTICS": view_analytics,
     "LOGS": view_logs,
-    "SENTIMENT": view_sentiment,
+    "SEVERITY": view_severity,
     "QUERY HISTORY": view_history,
 }
 VIEWS.get(st.session_state.view, view_terminal)()
