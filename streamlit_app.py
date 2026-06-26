@@ -290,7 +290,8 @@ GREEN_BRIGHT = "#53e076"
 AXIS = "#869585"
 
 
-def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT):
+def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT,
+                x_max=None):
     """Horizontal bar chart, dark-themed, sorted by value."""
     import altair as alt
     import pandas as pd
@@ -298,11 +299,12 @@ def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT)
     if df.empty:
         st.info("No data yet.")
         return
+    x_scale = alt.Scale(domain=[0, x_max]) if x_max else alt.Undefined
     chart = (
         alt.Chart(df)
         .mark_bar(cornerRadiusEnd=4, color=color)
         .encode(
-            x=alt.X(f"{value_field}:Q", title=value_title,
+            x=alt.X(f"{value_field}:Q", title=value_title, scale=x_scale,
                     axis=alt.Axis(grid=True, gridColor="#2a2a2a")),
             y=alt.Y(f"{label_field}:N", sort="-x", title=None,
                     axis=alt.Axis(labelLimit=300)),
@@ -539,7 +541,7 @@ def view_severity():
     _hbar_chart(
         [{"Theme": _readable(t["theme"]).title(),
           "Avg severity": round(t.get("avg_severity", 0), 1)} for t in rows],
-        "Theme", "Avg severity", "Avg severity (1–5)", color="#ffb4ab")
+        "Theme", "Avg severity", "Avg severity (1–5)", color="#ffb4ab", x_max=5)
     st.caption("Higher = more severe. A theme with high severity but fewer reviews "
                "can still be a bigger problem than its volume suggests.")
 
