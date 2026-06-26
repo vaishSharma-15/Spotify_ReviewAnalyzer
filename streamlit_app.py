@@ -366,6 +366,25 @@ def _answer_footer(meta: dict):
     st.markdown(html, unsafe_allow_html=True)
 
 
+def _answer_chart(meta: dict):
+    """Small charts under a bot answer: themes behind it + sources sample."""
+    tf = meta.get("theme_full") or []
+    sb = meta.get("source_breakdown") or []
+    if not tf and not sb:
+        return
+    c1, c2 = st.columns(2)
+    if tf:
+        with c1:
+            st.caption("Themes behind this answer")
+            _hbar_chart([{"Theme": t["theme"].title(), "Reviews": t["n"]} for t in tf],
+                        "Theme", "Reviews", "Reviews")
+    if sb:
+        with c2:
+            st.caption("Where these reviews came from")
+            _donut_chart([{"Source": _source_label(s["source"]), "Reviews": s["n"]}
+                          for s in sb], "Source", "Reviews")
+
+
 # ----------------------------------------------------------------------------
 # VIEW: TERMINAL (chat)
 # ----------------------------------------------------------------------------
@@ -388,8 +407,9 @@ def view_terminal():
             st.markdown(m["content"])
             if m.get("meta"):
                 _answer_footer(m["meta"])
+                _answer_chart(m["meta"])
 
-    typed = st.chat_input("> ask ANALYST_BOT about Spotify music discovery…")
+    typed = st.chat_input("> ask about Spotify music discovery…")
     question = st.session_state.pop("_pending", None) or typed
     if not question:
         return
@@ -401,21 +421,16 @@ def view_terminal():
         st.markdown(question)
 
     with st.chat_message("assistant", avatar="🟢"):
+        # Collect trace steps silently (shown later in the LOGS tab), not live.
         steps: list[str] = []
-        live = st.empty()
-
-        def _on_step(text: str):
-            steps.append(text)
-            live.markdown("```\n" + "\n".join(steps) + "\n```")
-
-        with st.spinner("analyzing reviews…"):
-            result = rag.answer(question, on_step=_on_step)
-        live.empty()
+        with st.spinner("Analyzing reviews…"):
+            result = rag.answer(question, on_step=steps.append)
         st.markdown(result["answer"])
         meta = {k: result.get(k) for k in
                 ("evidence_count", "analysis_base", "index_total",
                  "theme_full", "theme_breakdown", "source_breakdown")}
         _answer_footer(meta)
+        _answer_chart(meta)
 
     st.session_state.last_trace = steps
     st.session_state.messages.append(
