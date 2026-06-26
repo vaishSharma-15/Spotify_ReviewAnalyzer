@@ -92,6 +92,12 @@ st.markdown(
       /* chat bubbles */
       .stChatMessage { background:transparent; }
       .stChatMessage [data-testid="stChatMessageContent"] { font-size:14px; }
+      /* user message — right-aligned green bubble */
+      .userrow { display:flex; justify-content:flex-end; margin:8px 0; }
+      .userbubble { background:var(--primary); color:#0b0b0b; font-weight:600;
+                    padding:10px 15px; border-radius:16px 16px 4px 16px;
+                    max-width:80%; font-size:14px; line-height:1.45;
+                    box-shadow:0 1px 2px rgba(0,0,0,.3); }
 
       /* buttons / chips */
       .stButton>button { border-radius:9999px; border:1px solid var(--stroke);
@@ -393,6 +399,21 @@ def _answer_chart(meta: dict):
                           for s in sb], "Source", "Reviews")
 
 
+WELCOME = (
+    "👋 Hi! I'm the **Spotify Review Discovery Engine**. I analyze real user "
+    "reviews to explain **why music discovery falls short** — recommendations "
+    "repeating, hard-to-find new music, and what different listeners need.\n\n"
+    "Ask me anything about that, or tap a question below to start."
+)
+
+
+def _user_bubble(text: str):
+    """Render a user message as a right-aligned green bubble."""
+    safe = text.replace("<", "&lt;").replace(">", "&gt;")
+    st.markdown(f"<div class='userrow'><div class='userbubble'>{safe}</div></div>",
+                unsafe_allow_html=True)
+
+
 # ----------------------------------------------------------------------------
 # VIEW: TERMINAL (chat)
 # ----------------------------------------------------------------------------
@@ -402,8 +423,12 @@ def view_terminal():
                  "Build it with `python -m indexing.build_index`.")
         return
 
+    # Welcome message (bot, left) — always greets the user at the top.
+    with st.chat_message("assistant", avatar="🟢"):
+        st.markdown(WELCOME)
+
     if not st.session_state.messages:
-        st.caption("> Query the review intelligence base. Try a key question:")
+        st.caption("Try one of the key questions:")
         cols = st.columns(2)
         for i, s in enumerate(SUGGESTIONS):
             if cols[i % 2].button(s, key=f"sug{i}", use_container_width=True):
@@ -411,13 +436,16 @@ def view_terminal():
                 st.rerun()
 
     for m in st.session_state.messages:
-        with st.chat_message(m["role"], avatar="🟢" if m["role"] == "assistant" else "🧑"):
-            st.markdown(m["content"])
-            if m.get("meta"):
-                _answer_footer(m["meta"])
-                _answer_chart(m["meta"])
+        if m["role"] == "user":
+            _user_bubble(m["content"])
+        else:
+            with st.chat_message("assistant", avatar="🟢"):
+                st.markdown(m["content"])
+                if m.get("meta"):
+                    _answer_footer(m["meta"])
+                    _answer_chart(m["meta"])
 
-    typed = st.chat_input("> ask about Spotify music discovery…")
+    typed = st.chat_input("Ask about Spotify music discovery…")
     question = st.session_state.pop("_pending", None) or typed
     if not question:
         return
@@ -425,8 +453,7 @@ def view_terminal():
     st.session_state.messages.append({"role": "user", "content": question})
     st.session_state.history.append(
         {"q": question, "t": datetime.now().strftime('%I:%M:%S %p')})
-    with st.chat_message("user", avatar="🧑"):
-        st.markdown(question)
+    _user_bubble(question)
 
     with st.chat_message("assistant", avatar="🟢"):
         # Collect trace steps silently (shown later in the LOGS tab), not live.
