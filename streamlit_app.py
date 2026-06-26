@@ -243,13 +243,23 @@ with st.sidebar:
 
 
 # ----------------------------------------------------------------------------
-# Main heading (top of the page)
+# Main heading (top of the page) + Fetch button (top-right)
 # ----------------------------------------------------------------------------
-st.markdown(
-    f"<div class='apphead'>{SPOTIFY_LOGO}"
-    "<h1>Spotify Review Discovery Engine</h1></div>",
-    unsafe_allow_html=True,
-)
+head_l, head_r = st.columns([0.72, 0.28])
+with head_l:
+    st.markdown(
+        f"<div class='apphead'>{SPOTIFY_LOGO}"
+        "<h1>Spotify Review Discovery Engine</h1></div>",
+        unsafe_allow_html=True,
+    )
+with head_r:
+    if st.button("➕ Fetch new reviews", use_container_width=True,
+                 help="Runs the real pipeline live: scrape → LLM structure → "
+                      "embed → index. New on-theme reviews become searchable "
+                      "this session (not persisted on Cloud)."):
+        st.session_state._do_fetch = True
+# Status output from a fetch renders here, just under the heading.
+fetch_area = st.container()
 
 # ----------------------------------------------------------------------------
 # Top status bar
@@ -494,16 +504,6 @@ def view_terminal():
     with st.chat_message("assistant", avatar="🟢"):
         st.markdown(WELCOME)
 
-    # Live pipeline demo: fetch + index fresh reviews on demand.
-    fcol, _ = st.columns([0.4, 0.6])
-    if fcol.button("➕ Fetch new reviews", use_container_width=True,
-                   help="Runs the real pipeline live: scrape → LLM structure → "
-                        "embed → index. New on-theme reviews become searchable "
-                        "this session (not persisted on Cloud)."):
-        _fetch_new_reviews()
-        st.caption("These reviews were added this session for demo — the chatbot "
-                   "can now use them. (Pre-built index stays the source of truth.)")
-
     if not st.session_state.messages:
         st.caption("Try one of the key questions:")
         cols = st.columns(2)
@@ -686,6 +686,11 @@ def view_history():
         st.markdown(f"<div class='logline'><span class='t'>{h['t']}</span> &nbsp; {h['q']}</div>",
                     unsafe_allow_html=True)
 
+
+# Handle a Fetch-new-reviews request — render its status into the top container.
+if st.session_state.pop("_do_fetch", False):
+    with fetch_area:
+        _fetch_new_reviews()
 
 # ----------------------------------------------------------------------------
 # Router
