@@ -610,12 +610,16 @@ def view_terminal():
         with st.spinner("Analyzing reviews…"):
             result = rag.answer(question, on_step=steps.append)
         st.markdown(result["answer"])
-        meta = {k: result.get(k) for k in
-                ("evidence_count", "analysis_base", "index_total",
-                 "theme_full", "theme_breakdown", "source_breakdown")}
-        with st.expander("📊 Data behind this answer"):
-            _answer_footer(meta)
-            _answer_chart(meta)
+        # Only show the data panel for real analytical answers (not greetings /
+        # out-of-scope replies, which carry no evidence).
+        meta = None
+        if result.get("evidence_count"):
+            meta = {k: result.get(k) for k in
+                    ("evidence_count", "analysis_base", "index_total",
+                     "theme_full", "theme_breakdown", "source_breakdown")}
+            with st.expander("📊 Data behind this answer"):
+                _answer_footer(meta)
+                _answer_chart(meta)
 
     st.session_state.last_trace = steps
     st.session_state.messages.append(

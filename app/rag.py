@@ -56,7 +56,7 @@ _SMALLTALK = [
     (_re.compile(r"^\s*(hi+|hey+|hello+|yo+|hiya|heya|good (morning|afternoon|evening)|greetings)\b", _re.I),
      "Hey there! 👋 I'm the Spotify Review Discovery Engine. Ask me why users "
      "struggle to find new music, what frustrates them about recommendations, "
-     "and more — or tap a suggested question to start."),
+     "and more."),
     (_re.compile(r"\b(who are you|what can you do|what do you do|help)\b", _re.I),
      "I analyze real Spotify user reviews to explain why music discovery falls "
      "short — repetitive recommendations, hard-to-find new music, and what "
