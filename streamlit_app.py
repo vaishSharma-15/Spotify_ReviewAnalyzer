@@ -432,7 +432,7 @@ def _user_bubble(text: str):
                 unsafe_allow_html=True)
 
 
-def _fetch_new_reviews(per_source: int = 2):
+def _fetch_new_reviews(per_source: int = 6):
     """Live demo of the real pipeline: scrape MULTIPLE sources → structure →
     embed → index. Added reviews are searchable by the chatbot immediately
     (this session). On Streamlit Cloud they don't persist past a restart.
@@ -529,9 +529,26 @@ def _fetch_new_reviews(per_source: int = 2):
                 } for sid, r, d in keep],
             )
         st.write(f"   ↳ index grew **{before} → {col.count()}** "
-                 f"({len(keep)} on-theme reviews added)")
-        box.update(label=f"✅ Done — {len(keep)} new reviews now searchable this session",
-                   state="complete", expanded=True)
+                 f"({len(keep)} complaints added)")
+
+        # --- Final: the new complaint reviews that are now searchable ---
+        st.write("**✅  New reviews added (complaints, now searchable):**")
+        if keep:
+            for sid, r, d in keep:
+                snip = (((r.title + " — ") if r.title else "") + (r.body or ""))[:200]
+                st.markdown(
+                    f"<div class='fetchrev'><b>{_source_label(sid)}</b> "
+                    f"<span style='color:#869585'>· {_readable(d['theme'])} · "
+                    f"severity {d['severity_score']}</span><br>{snip}</div>",
+                    unsafe_allow_html=True)
+        else:
+            st.info("None of the freshly scraped reviews were on-theme complaints "
+                    "this time (recent reviews are often positive or off-topic). "
+                    "Try again — newer batches usually include some complaints.")
+        box.update(
+            label=(f"✅ Done — {len(keep)} new complaints added & searchable"
+                   if keep else "Done — no on-theme complaints in this batch"),
+            state="complete", expanded=True)
 
 
 # ----------------------------------------------------------------------------
