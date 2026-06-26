@@ -569,6 +569,18 @@ def view_terminal():
     with st.chat_message("assistant", avatar="🟢"):
         st.markdown(WELCOME)
 
+    # Persist the reviews fetched this session so they stay visible on this tab.
+    added = [r for r in st.session_state.fetched_log if r.get("on_theme")]
+    if added:
+        with st.expander(f"🆕 {len(added)} reviews fetched this session "
+                         "(searchable now)", expanded=True):
+            for r in added:
+                st.markdown(
+                    f"<div class='fetchrev'><b>{_source_label(r['source'])}</b> "
+                    f"<span style='color:#869585'>· {r['t']} · {_readable(r['theme'])} "
+                    f"· severity {r['severity']}</span><br>{r['text']}</div>",
+                    unsafe_allow_html=True)
+
     if not st.session_state.messages:
         st.caption("Try one of the key questions:")
         cols = st.columns(2)
@@ -629,7 +641,7 @@ def view_analytics():
         ("Curated", f"{ps['raw']:,}", "negative · no emoji"),
         ("Analyzed by LLM", f"{ps['structured']:,}", "theme / sentiment / severity"),
         ("On-question themes", f"{ps['on_theme']:,}", "the 12 discovery themes"),
-        ("Indexed (in use)", f"{ps['indexed']:,}", "searchable vectors"),
+        ("Indexed (in use)", f"{ps['on_theme']:,}", "searchable vectors"),
     ]
     cols = st.columns(len(cards))
     for col, (k, v, sub) in zip(cols, cards):
