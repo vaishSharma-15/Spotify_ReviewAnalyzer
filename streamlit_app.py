@@ -202,6 +202,8 @@ if "last_trace" not in st.session_state:
     st.session_state.last_trace = []
 if "history" not in st.session_state:
     st.session_state.history = []
+if "fetched_log" not in st.session_state:
+    st.session_state.fetched_log = []
 
 NAV = [
     ("TERMINAL", ":material/chat:"),
@@ -489,6 +491,13 @@ def _fetch_new_reviews(per_source: int = 2):
             on = d["theme"] in DISCOVERY_THEMES
             st.caption(f"     ↳ {_readable(d['theme'])} · {d['sentiment']} · "
                        f"severity {d['severity_score']}" + ("" if on else " · off-theme (skipped)"))
+            # Log it for the LOGS tab.
+            st.session_state.fetched_log.insert(0, {
+                "source": sid, "text": snippet[:300], "theme": d["theme"],
+                "sentiment": d["sentiment"], "severity": d["severity_score"],
+                "on_theme": on, "url": r.source_url or "",
+                "t": _t.strftime("%I:%M:%S %p"),
+            })
             if on:
                 keep.append((sid, r, d))
 
@@ -687,14 +696,36 @@ def view_severity():
 # VIEW: LOGS (live backend trace of last query)
 # ----------------------------------------------------------------------------
 def view_logs():
+    # --- Newly fetched reviews this session ---
+    st.markdown("<div class='viewhead'>// FETCHED THIS SESSION</div>", unsafe_allow_html=True)
+    fl = st.session_state.fetched_log
+    if not fl:
+        st.caption("No live fetches yet. Use “➕ Fetch new reviews” (top-right) to "
+                   "pull fresh reviews — they'll be logged here.")
+    else:
+        st.caption(f"{len(fl)} reviews pulled live this session "
+                   "(newest first). On-theme ones were added to the index.")
+        for r in fl:
+            tag = ("<span style='color:#53e076'>● added</span>" if r["on_theme"]
+                   else "<span style='color:#869585'>○ off-theme</span>")
+            link = (f" <a href='{r['url']}' target='_blank' style='color:#869585'>↗</a>"
+                    if r.get("url") else "")
+            st.markdown(
+                f"<div class='fetchrev'><b>{_source_label(r['source'])}</b> "
+                f"<span style='color:#869585'>· {r['t']} · {_readable(r['theme'])} · "
+                f"sev {r['severity']} · {tag}</span>{link}<br>{r['text']}</div>",
+                unsafe_allow_html=True)
+    st.write("")
+
+    # --- Backend trace of the last query ---
     st.markdown("<div class='viewhead'>// BACKEND TRACE — LAST QUERY</div>", unsafe_allow_html=True)
     st.caption("The real pipeline stages that ran for your most recent question.")
     if not st.session_state.last_trace:
         st.info("No query run yet. Ask something in TERMINAL to populate the log.")
-        return
-    for s in st.session_state.last_trace:
-        st.markdown(f"<div class='logline'><span class='t'>›</span> {s}</div>",
-                    unsafe_allow_html=True)
+    else:
+        for s in st.session_state.last_trace:
+            st.markdown(f"<div class='logline'><span class='t'>›</span> {s}</div>",
+                        unsafe_allow_html=True)
     st.write("")
     st.markdown("<div class='viewhead'>// REVIEWS BY SOURCE</div>", unsafe_allow_html=True)
     total = sum(n for _, n in ps["sources"]) or 1
