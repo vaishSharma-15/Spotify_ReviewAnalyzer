@@ -145,10 +145,15 @@ st.markdown(
 # ----------------------------------------------------------------------------
 # Data helpers
 # ----------------------------------------------------------------------------
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner="Warming up the engine…")
 def _warm():
     try:
-        return {"ok": True, "n": rag._collection().count()}
+        n = rag._collection().count()
+        # Pre-load the embedding model now (one-time ~15s cold start) so the
+        # first query/fetch is fast instead of paying it on the user's click.
+        from indexing.embed import embed_texts
+        embed_texts(["warmup"])
+        return {"ok": True, "n": n}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": str(exc)}
 
