@@ -488,14 +488,22 @@ def _fetch_new_reviews(per_source: int = 2):
                 d = structure_one(client, model, {"title": r.title, "body": r.body})
             except Exception as exc:  # noqa: BLE001
                 st.caption(f"     ↳ skipped ({exc})"); continue
-            on = d["theme"] in DISCOVERY_THEMES
+            # Keep only complaints: on-theme AND negative (positives/neutral skipped).
+            on_theme = d["theme"] in DISCOVERY_THEMES
+            is_neg = d["sentiment"] == "negative"
+            on = on_theme and is_neg
+            reason = ("" if on else
+                      " · off-theme (skipped)" if not on_theme else
+                      f" · {d['sentiment']} (skipped — complaints only)")
             st.caption(f"     ↳ {_readable(d['theme'])} · {d['sentiment']} · "
-                       f"severity {d['severity_score']}" + ("" if on else " · off-theme (skipped)"))
+                       f"severity {d['severity_score']}{reason}")
             # Log it for the LOGS tab.
+            status_txt = ("added" if on else
+                          "off-theme" if not on_theme else "positive — skipped")
             st.session_state.fetched_log.insert(0, {
                 "source": sid, "text": snippet[:300], "theme": d["theme"],
                 "sentiment": d["sentiment"], "severity": d["severity_score"],
-                "on_theme": on, "url": r.source_url or "",
+                "on_theme": on, "status": status_txt, "url": r.source_url or "",
                 "t": _t.strftime("%I:%M:%S %p"),
             })
             if on:
@@ -707,7 +715,7 @@ def view_logs():
                    "(newest first). On-theme ones were added to the index.")
         for r in fl:
             tag = ("<span style='color:#53e076'>● added</span>" if r["on_theme"]
-                   else "<span style='color:#869585'>○ off-theme</span>")
+                   else f"<span style='color:#869585'>○ {r.get('status', 'skipped')}</span>")
             link = (f" <a href='{r['url']}' target='_blank' style='color:#869585'>↗</a>"
                     if r.get("url") else "")
             st.markdown(
