@@ -304,7 +304,8 @@ def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT)
         .encode(
             x=alt.X(f"{value_field}:Q", title=value_title,
                     axis=alt.Axis(grid=True, gridColor="#2a2a2a")),
-            y=alt.Y(f"{label_field}:N", sort="-x", title=None),
+            y=alt.Y(f"{label_field}:N", sort="-x", title=None,
+                    axis=alt.Axis(labelLimit=300)),
             tooltip=[alt.Tooltip(f"{label_field}:N", title="Theme"),
                      alt.Tooltip(f"{value_field}:Q", title=value_title)],
         )
