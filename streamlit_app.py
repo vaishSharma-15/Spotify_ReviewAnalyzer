@@ -267,7 +267,7 @@ with bar_r:
     if st.button("➕ Fetch new reviews", use_container_width=True,
                  help="Runs the real pipeline live: scrape → LLM structure → "
                       "embed → index. New on-theme complaints become searchable "
-                      "this session (not persisted on Cloud)."):
+                      "this session."):
         st.session_state._do_fetch = True
 # Status output from a fetch renders here, just under the heading.
 fetch_area = st.container()
