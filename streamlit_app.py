@@ -452,15 +452,18 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
     ]
 
     # Block all clicks while the pipeline runs (full-screen wait overlay).
-    st.markdown(
+    # Kept in a placeholder so we can REMOVE it the moment the fetch finishes.
+    overlay = st.empty()
+    overlay.markdown(
         "<style>[data-testid='stAppViewContainer'] *{cursor:wait !important;}"
         ".fetch-lock{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.25);}"
         "</style><div class='fetch-lock'></div>",
         unsafe_allow_html=True,
     )
 
-    with st.status("Running the pipeline — scraping, analysing, indexing…",
-                   expanded=True) as box:
+    try:
+      with st.status("Running the pipeline — scraping, analysing, indexing…",
+                     expanded=True) as box:
         # Stage 1: scrape (silent). Keep only LOW-RATED reviews (≤2★) — they're
         # almost always complaints, so we skip the LLM on obvious positives.
         fresh = []
@@ -549,6 +552,8 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
             label=(f"✅ Done — {len(keep)} new complaints added & searchable"
                    if keep else "Done — no on-theme complaints in this batch"),
             state="complete", expanded=True)
+    finally:
+        overlay.empty()  # always remove the click-block when the fetch ends
 
 
 # ----------------------------------------------------------------------------
