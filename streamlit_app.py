@@ -228,6 +228,24 @@ SUGGESTIONS = [
 ]
 
 
+def _readable(t: str) -> str:
+    return (t or "other").replace("_", " ")
+
+
+SOURCE_LABELS = {
+    "app_store": "App Store reviews",
+    "play_store": "Play Store reviews",
+    "reddit": "Reddit discussions",
+    "community_forum": "Community forums",
+    "social": "Social media conversations",
+}
+
+
+def _source_label(s: str) -> str:
+    base = (s or "").replace(" (LIVE)", "").strip()
+    return SOURCE_LABELS.get(base, _readable(s).title())
+
+
 # ----------------------------------------------------------------------------
 # Sidebar — brand + nav + session
 # ----------------------------------------------------------------------------
@@ -254,6 +272,19 @@ with st.sidebar:
             st.session_state.view = name
             st.rerun()
 
+    # Reviews fetched this session — shown here so they don't break up the chat.
+    _added = [r for r in st.session_state.get("fetched_log", []) if r.get("on_theme")]
+    if _added:
+        st.divider()
+        st.markdown(f"<div class='viewhead'>🆕 FETCHED THIS SESSION ({len(_added)})</div>",
+                    unsafe_allow_html=True)
+        for r in _added:
+            st.markdown(
+                f"<div class='fetchrev'><b>{_source_label(r['source'])}</b> "
+                f"<span style='color:#869585'>· {_readable(r['theme'])} · "
+                f"sev {r['severity']}</span><br>{r['text'][:160]}</div>",
+                unsafe_allow_html=True)
+
 
 # ----------------------------------------------------------------------------
 # Main heading (top of the page) + Fetch button (top-right)
@@ -279,22 +310,6 @@ if st.session_state.view == "TERMINAL":
 fetch_area = st.container()
 
 
-def _readable(t: str) -> str:
-    return (t or "other").replace("_", " ")
-
-
-SOURCE_LABELS = {
-    "app_store": "App Store reviews",
-    "play_store": "Play Store reviews",
-    "reddit": "Reddit discussions",
-    "community_forum": "Community forums",
-    "social": "Social media conversations",
-}
-
-
-def _source_label(s: str) -> str:
-    base = (s or "").replace(" (LIVE)", "").strip()
-    return SOURCE_LABELS.get(base, _readable(s).title())
 
 
 def _bar(label, value, total, num=None):
@@ -559,18 +574,6 @@ def view_terminal():
     # Welcome message (bot, left) — always greets the user at the top.
     with st.chat_message("assistant", avatar="🟢"):
         st.markdown(WELCOME)
-
-    # Persist the reviews fetched this session so they stay visible on this tab.
-    added = [r for r in st.session_state.fetched_log if r.get("on_theme")]
-    if added:
-        with st.expander(f"🆕 {len(added)} reviews fetched this session "
-                         "(searchable now)", expanded=True):
-            for r in added:
-                st.markdown(
-                    f"<div class='fetchrev'><b>{_source_label(r['source'])}</b> "
-                    f"<span style='color:#869585'>· {r['t']} · {_readable(r['theme'])} "
-                    f"· severity {r['severity']}</span><br>{r['text']}</div>",
-                    unsafe_allow_html=True)
 
     if not st.session_state.messages:
         st.caption("Try one of the key questions:")
