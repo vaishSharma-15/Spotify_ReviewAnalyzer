@@ -307,11 +307,11 @@ def _hbar_chart(data, label_field, value_field, value_title, color=GREEN_BRIGHT,
             x=alt.X(f"{value_field}:Q", title=value_title, scale=x_scale,
                     axis=alt.Axis(grid=True, gridColor="#2a2a2a")),
             y=alt.Y(f"{label_field}:N", sort="-x", title=None,
-                    axis=alt.Axis(labelLimit=300)),
+                    axis=alt.Axis(labelLimit=300, labelOverlap=False, labelPadding=6)),
             tooltip=[alt.Tooltip(f"{label_field}:N", title="Theme"),
                      alt.Tooltip(f"{value_field}:Q", title=value_title)],
         )
-        .properties(height=max(220, 26 * len(df)))
+        .properties(height=max(260, 34 * len(df)))
         .configure_view(strokeWidth=0)
         .configure_axis(labelColor=AXIS, titleColor=AXIS, labelFontSize=12)
     )
