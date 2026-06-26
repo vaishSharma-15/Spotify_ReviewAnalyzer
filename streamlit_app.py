@@ -130,6 +130,12 @@ st.markdown(
       .evidence .er { font-size:12.5px; color:var(--dim); line-height:1.7;
                       font-family:'JetBrains Mono',monospace; }
       .evidence .er b { color:var(--text); }
+
+      /* fetched-review log line */
+      .fetchrev { font-size:12.5px; color:var(--text); background:var(--panel);
+                  border:1px solid var(--stroke); border-left:3px solid var(--primary);
+                  border-radius:8px; padding:7px 10px; margin:5px 0; line-height:1.4; }
+      .fetchrev b { color:var(--primary-bright); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -424,53 +430,74 @@ def _user_bubble(text: str):
                 unsafe_allow_html=True)
 
 
-def _fetch_new_reviews(n: int = 3):
-    """Live demo of the real pipeline: scrape → structure → embed → index.
-
-    Added reviews are searchable by the chatbot immediately (this session).
-    On Streamlit Cloud they don't persist past a restart (ephemeral storage).
+def _fetch_new_reviews(per_source: int = 2):
+    """Live demo of the real pipeline: scrape MULTIPLE sources → structure →
+    embed → index. Added reviews are searchable by the chatbot immediately
+    (this session). On Streamlit Cloud they don't persist past a restart.
     """
     import time as _t
-    from ingestion.collectors.appstore import AppStoreCollector
     from indexing.embed import embed_texts
     from structuring.structure import structure_one
     from structuring.schema import DISCOVERY_THEMES, MODEL
+    from ingestion.collectors.appstore import AppStoreCollector
+    from ingestion.collectors.playstore import PlayStoreCollector
+    from ingestion.collectors.reddit import RedditCollector
+    from ingestion.collectors.community import CommunityForumCollector
+    from ingestion.collectors.social import SocialCollector
     import groq
 
     if not os.environ.get("GROQ_API_KEY"):
         st.error("GROQ_API_KEY not set — add it in the app's Secrets to fetch.")
         return
 
-    with st.status("Running the real pipeline…", expanded=True) as box:
-        st.write(f"**①  Scraping** {n} fresh reviews from the Apple App Store…")
-        try:
-            fresh = list(AppStoreCollector(countries="us").collect(n))
-        except Exception as exc:  # noqa: BLE001
-            box.update(label="Scrape failed", state="error"); st.write(str(exc)); return
-        st.write(f"   ↳ pulled **{len(fresh)}** reviews")
-        if not fresh:
-            box.update(label="No reviews returned", state="error"); return
+    sources = [
+        ("app_store", "App Store", lambda: AppStoreCollector(countries="us")),
+        ("play_store", "Play Store", lambda: PlayStoreCollector()),
+        ("reddit", "Reddit", lambda: RedditCollector()),
+        ("community_forum", "Community forum", lambda: CommunityForumCollector()),
+        ("social", "Social media", lambda: SocialCollector()),
+    ]
 
-        st.write("**②  Structuring** each via the Groq LLM…")
+    with st.status("Running the real pipeline across all sources…", expanded=True) as box:
+        # --- Stage 1: scrape every source (graceful skip if one is unavailable) ---
+        st.write("**①  Scraping live from all sources**")
+        fresh = []
+        for sid, label, make in sources:
+            try:
+                got = list(make().collect(per_source))
+            except Exception as exc:  # noqa: BLE001
+                st.write(f"   • {label}: ⚠️ skipped ({str(exc)[:60]})"); continue
+            st.write(f"   • {label}: pulled **{len(got)}**")
+            for r in got:
+                fresh.append((sid, r))
+        if not fresh:
+            box.update(label="No reviews returned from any source", state="error"); return
+
+        # --- Stage 2: show the actual reviews + structure them ---
+        st.write(f"**②  Structuring {len(fresh)} reviews via the Groq LLM**")
         client = groq.Groq()
         model = os.environ.get("GROQ_MODEL", MODEL)
         keep = []
-        for r in fresh:
+        for sid, r in fresh:
+            snippet = ((r.title + " — ") if r.title else "") + (r.body or "")
+            st.markdown(f"<div class='fetchrev'><b>{_source_label(sid)}</b> · "
+                        f"{snippet[:160]}</div>", unsafe_allow_html=True)
             try:
                 d = structure_one(client, model, {"title": r.title, "body": r.body})
             except Exception as exc:  # noqa: BLE001
-                st.write(f"   ↳ skipped one ({exc})"); continue
-            on_theme = d["theme"] in DISCOVERY_THEMES
-            st.write(f"   ↳ {_readable(d['theme'])} · {d['sentiment']} · "
-                     f"severity {d['severity_score']}" + ("" if on_theme else " · off-theme"))
-            if on_theme:
-                keep.append((r, d))
+                st.caption(f"     ↳ skipped ({exc})"); continue
+            on = d["theme"] in DISCOVERY_THEMES
+            st.caption(f"     ↳ {_readable(d['theme'])} · {d['sentiment']} · "
+                       f"severity {d['severity_score']}" + ("" if on else " · off-theme (skipped)"))
+            if on:
+                keep.append((sid, r, d))
 
-        st.write("**③  Embedding + indexing** into the vector store…")
+        # --- Stage 3: embed + index ---
+        st.write("**③  Embedding + indexing into the vector store**")
         col = rag._collection()
         before = col.count()
         if keep:
-            docs = [((r.title + ". ") if r.title else "") + (r.body or "") for r, _ in keep]
+            docs = [((r.title + ". ") if r.title else "") + (r.body or "") for _, r, _ in keep]
             embs = embed_texts(docs)
             col.upsert(
                 ids=[f"live-{int(_t.time())}-{i}" for i in range(len(keep))],
@@ -480,15 +507,14 @@ def _fetch_new_reviews(n: int = 3):
                     "theme": d["theme"], "sentiment": d["sentiment"],
                     "user_segment": ",".join(d.get("user_segment") or ["unspecified"]),
                     "severity_score": int(d["severity_score"]),
-                    "source": "app_store", "source_url": r.source_url or "",
+                    "source": sid, "source_url": r.source_url or "",
                     "frustration": (d.get("frustration") or "")[:300],
-                } for r, d in keep],
+                } for sid, r, d in keep],
             )
         st.write(f"   ↳ index grew **{before} → {col.count()}** "
-                 f"({len(keep)} on-theme added)")
+                 f"({len(keep)} on-theme reviews added)")
         box.update(label=f"✅ Done — {len(keep)} new reviews now searchable this session",
-                   state="complete", expanded=False)
-    st.cache_data.clear()  # refresh counts shown in the UI
+                   state="complete", expanded=True)
 
 
 # ----------------------------------------------------------------------------
@@ -519,8 +545,9 @@ def view_terminal():
             with st.chat_message("assistant", avatar="🟢"):
                 st.markdown(m["content"])
                 if m.get("meta"):
-                    _answer_footer(m["meta"])
-                    _answer_chart(m["meta"])
+                    with st.expander("📊 Data behind this answer"):
+                        _answer_footer(m["meta"])
+                        _answer_chart(m["meta"])
 
     typed = st.chat_input("Ask about Spotify music discovery…")
     question = st.session_state.pop("_pending", None) or typed
@@ -541,8 +568,9 @@ def view_terminal():
         meta = {k: result.get(k) for k in
                 ("evidence_count", "analysis_base", "index_total",
                  "theme_full", "theme_breakdown", "source_breakdown")}
-        _answer_footer(meta)
-        _answer_chart(meta)
+        with st.expander("📊 Data behind this answer"):
+            _answer_footer(meta)
+            _answer_chart(meta)
 
     st.session_state.last_trace = steps
     st.session_state.messages.append(
