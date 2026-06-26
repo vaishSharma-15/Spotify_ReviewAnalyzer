@@ -461,7 +461,8 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
 
     with st.status("Running the pipeline — scraping, analysing, indexing…",
                    expanded=True) as box:
-        # Stage 1: scrape every source (silent — only the final result is shown).
+        # Stage 1: scrape (silent). Keep only LOW-RATED reviews (≤2★) — they're
+        # almost always complaints, so we skip the LLM on obvious positives.
         fresh = []
         for sid, label, make in sources:
             try:
@@ -469,20 +470,36 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
             except Exception:  # noqa: BLE001
                 continue
             for r in got:
-                fresh.append((sid, r))
+                if r.rating is None or r.rating <= 2:
+                    fresh.append((sid, r))
+        # Lowest ratings first so the strongest complaints are tried first.
+        fresh.sort(key=lambda x: (x[1].rating or 0))
+        fresh = fresh[:target + 3]  # only structure a few candidates
         if not fresh:
-            box.update(label="No reviews returned from any source", state="error"); return
+            box.update(label="No recent low-rated reviews found — try again",
+                       state="error"); return
 
-        # Stage 2: structure via Groq (silent), keep only on-theme complaints.
+        # Stage 2: structure the few candidates in PARALLEL (fast), keep complaints.
+        from concurrent.futures import ThreadPoolExecutor
         client = groq.Groq()
         model = os.environ.get("GROQ_MODEL", MODEL)
-        keep = []
-        for sid, r in fresh:
-            snippet = ((r.title + " — ") if r.title else "") + (r.body or "")
+
+        def _struct(item):
+            sid, r = item
             try:
-                d = structure_one(client, model, {"title": r.title, "body": r.body})
+                return sid, r, structure_one(client, model,
+                                             {"title": r.title, "body": r.body})
             except Exception:  # noqa: BLE001
+                return sid, r, None
+
+        with ThreadPoolExecutor(max_workers=len(fresh)) as ex:
+            results = list(ex.map(_struct, fresh))
+
+        keep = []
+        for sid, r, d in results:
+            if d is None:
                 continue
+            snippet = ((r.title + " — ") if r.title else "") + (r.body or "")
             on_theme = d["theme"] in DISCOVERY_THEMES
             on = on_theme and d["sentiment"] == "negative"
             status_txt = ("added" if on else
@@ -493,11 +510,8 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
                 "on_theme": on, "status": status_txt, "url": r.source_url or "",
                 "t": _t.strftime("%I:%M:%S %p"),
             })
-            if on:
+            if on and len(keep) < target:
                 keep.append((sid, r, d))
-            # Stop as soon as we have enough complaints — keeps it fast.
-            if len(keep) >= target:
-                break
 
         # Stage 3: embed + index (silent).
         col = rag._collection()
