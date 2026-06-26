@@ -258,10 +258,10 @@ analyzed = ps.get("structured", 0)
 db_state = "STABLE" if status.get("ok") else "ERROR"
 st.markdown(
     f"<div class='statusbar'>"
-    f"<span class='live'><span class='dot'></span>LIVE: {analyzed:,} ANALYZED</span>"
-    f"<span>SYNC: <b>{datetime.now().strftime('%I:%M:%S %p')}</b></span>"
-    f"<span>DB_STATUS: <b>{db_state}</b></span>"
+    f"<span class='live'><span class='dot'></span>ANALYZED: {analyzed:,}</span>"
     f"<span>INDEX: <b>{ps.get('indexed', 0):,}</b></span>"
+    f"<span>DB_STATUS: <b>{db_state}</b></span>"
+    f"<span>QUERY ENGINE: <b>REAL-TIME</b></span>"
     f"</div>",
     unsafe_allow_html=True,
 )
