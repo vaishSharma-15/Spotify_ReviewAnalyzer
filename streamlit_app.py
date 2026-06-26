@@ -541,7 +541,7 @@ def view_severity():
     _hbar_chart(
         [{"Theme": _readable(t["theme"]).title(),
           "Avg severity": round(t.get("avg_severity", 0), 1)} for t in rows],
-        "Theme", "Avg severity", "Avg severity (1–5)", color="#ffb4ab", x_max=5)
+        "Theme", "Avg severity", "Avg severity (1–5)", color=GREEN_BRIGHT, x_max=5)
     st.caption("Higher = more severe. A theme with high severity but fewer reviews "
                "can still be a bigger problem than its volume suggests.")
 
