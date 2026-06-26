@@ -783,6 +783,9 @@ def view_history():
 if st.session_state.pop("_do_fetch", False):
     with fetch_area:
         _fetch_new_reviews()
+    # Re-render cleanly so only the persistent "🆕 fetched this session" panel
+    # remains (avoids showing the transient fetch status box alongside it).
+    st.rerun()
 
 # ----------------------------------------------------------------------------
 # Router
