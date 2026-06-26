@@ -420,10 +420,12 @@ def _user_bubble(text: str):
                 unsafe_allow_html=True)
 
 
-def _fetch_new_reviews(per_source: int = 6):
-    """Live demo of the real pipeline: scrape MULTIPLE sources → structure →
-    embed → index. Added reviews are searchable by the chatbot immediately
-    (this session). On Streamlit Cloud they don't persist past a restart.
+def _fetch_new_reviews(per_source: int = 8, target: int = 3):
+    """Live demo of the real pipeline: scrape → structure → embed → index.
+
+    Fast by design: uses only the no-credential sources (App Store, Play Store)
+    and stops structuring as soon as ``target`` on-theme complaints are found.
+    Added reviews are searchable by the chatbot immediately (this session).
     """
     import time as _t
     from indexing.embed import embed_texts
@@ -431,21 +433,16 @@ def _fetch_new_reviews(per_source: int = 6):
     from structuring.schema import DISCOVERY_THEMES, MODEL
     from ingestion.collectors.appstore import AppStoreCollector
     from ingestion.collectors.playstore import PlayStoreCollector
-    from ingestion.collectors.reddit import RedditCollector
-    from ingestion.collectors.community import CommunityForumCollector
-    from ingestion.collectors.social import SocialCollector
     import groq
 
     if not os.environ.get("GROQ_API_KEY"):
         st.error("GROQ_API_KEY not set — add it in the app's Secrets to fetch.")
         return
 
+    # Only the fast, credential-free sources (others are slow / anti-bot).
     sources = [
         ("app_store", "App Store", lambda: AppStoreCollector(countries="us")),
         ("play_store", "Play Store", lambda: PlayStoreCollector()),
-        ("reddit", "Reddit", lambda: RedditCollector()),
-        ("community_forum", "Community forum", lambda: CommunityForumCollector()),
-        ("social", "Social media", lambda: SocialCollector()),
     ]
 
     # Block all clicks while the pipeline runs (full-screen wait overlay).
@@ -492,6 +489,9 @@ def _fetch_new_reviews(per_source: int = 6):
             })
             if on:
                 keep.append((sid, r, d))
+            # Stop as soon as we have enough complaints — keeps it fast.
+            if len(keep) >= target:
+                break
 
         # Stage 3: embed + index (silent).
         col = rag._collection()
