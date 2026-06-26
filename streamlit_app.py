@@ -245,36 +245,36 @@ with st.sidebar:
 # ----------------------------------------------------------------------------
 # Main heading (top of the page) + Fetch button (top-right)
 # ----------------------------------------------------------------------------
-head_l, head_r = st.columns([0.72, 0.28])
-with head_l:
+st.markdown(
+    f"<div class='apphead'>{SPOTIFY_LOGO}"
+    "<h1>Spotify Review Discovery Engine</h1></div>",
+    unsafe_allow_html=True,
+)
+
+# ----------------------------------------------------------------------------
+# Top status bar + Fetch button (same line, button on the right)
+# ----------------------------------------------------------------------------
+analyzed = ps.get("structured", 0)
+db_state = "STABLE" if status.get("ok") else "ERROR"
+bar_l, bar_r = st.columns([0.72, 0.28])
+with bar_l:
     st.markdown(
-        f"<div class='apphead'>{SPOTIFY_LOGO}"
-        "<h1>Spotify Review Discovery Engine</h1></div>",
+        f"<div class='statusbar'>"
+        f"<span class='live'><span class='dot'></span>ANALYZED: {analyzed:,}</span>"
+        f"<span>INDEX: <b>{ps.get('indexed', 0):,}</b></span>"
+        f"<span>DB_STATUS: <b>{db_state}</b></span>"
+        f"<span>QUERY ENGINE: <b>REAL-TIME</b></span>"
+        f"</div>",
         unsafe_allow_html=True,
     )
-with head_r:
+with bar_r:
     if st.button("➕ Fetch new reviews", use_container_width=True,
                  help="Runs the real pipeline live: scrape → LLM structure → "
                       "embed → index. New on-theme reviews become searchable "
                       "this session (not persisted on Cloud)."):
         st.session_state._do_fetch = True
-# Status output from a fetch renders here, just under the heading.
+# Status output from a fetch renders here, just under the status bar.
 fetch_area = st.container()
-
-# ----------------------------------------------------------------------------
-# Top status bar
-# ----------------------------------------------------------------------------
-analyzed = ps.get("structured", 0)
-db_state = "STABLE" if status.get("ok") else "ERROR"
-st.markdown(
-    f"<div class='statusbar'>"
-    f"<span class='live'><span class='dot'></span>ANALYZED: {analyzed:,}</span>"
-    f"<span>INDEX: <b>{ps.get('indexed', 0):,}</b></span>"
-    f"<span>DB_STATUS: <b>{db_state}</b></span>"
-    f"<span>QUERY ENGINE: <b>REAL-TIME</b></span>"
-    f"</div>",
-    unsafe_allow_html=True,
-)
 
 
 def _readable(t: str) -> str:
