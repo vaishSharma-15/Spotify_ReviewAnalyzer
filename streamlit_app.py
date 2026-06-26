@@ -260,28 +260,16 @@ st.markdown(
 )
 
 # ----------------------------------------------------------------------------
-# Top status bar + Fetch button (same line, button on the right)
+# Fetch button (top-right)
 # ----------------------------------------------------------------------------
-analyzed = ps.get("structured", 0)
-db_state = "STABLE" if status.get("ok") else "ERROR"
-bar_l, bar_r = st.columns([0.72, 0.28])
-with bar_l:
-    st.markdown(
-        f"<div class='statusbar'>"
-        f"<span class='live'><span class='dot'></span>ANALYZED: {analyzed:,}</span>"
-        f"<span>INDEX: <b>{ps.get('indexed', 0):,}</b></span>"
-        f"<span>DB_STATUS: <b>{db_state}</b></span>"
-        f"<span>QUERY ENGINE: <b>REAL-TIME</b></span>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+_sp, bar_r = st.columns([0.72, 0.28])
 with bar_r:
     if st.button("➕ Fetch new reviews", use_container_width=True,
                  help="Runs the real pipeline live: scrape → LLM structure → "
-                      "embed → index. New on-theme reviews become searchable "
+                      "embed → index. New on-theme complaints become searchable "
                       "this session (not persisted on Cloud)."):
         st.session_state._do_fetch = True
-# Status output from a fetch renders here, just under the status bar.
+# Status output from a fetch renders here, just under the heading.
 fetch_area = st.container()
 
 
@@ -460,44 +448,40 @@ def _fetch_new_reviews(per_source: int = 6):
         ("social", "Social media", lambda: SocialCollector()),
     ]
 
-    with st.status("Running the real pipeline across all sources…", expanded=True) as box:
-        # --- Stage 1: scrape every source (graceful skip if one is unavailable) ---
-        st.write("**①  Scraping live from all sources**")
+    # Block all clicks while the pipeline runs (full-screen wait overlay).
+    st.markdown(
+        "<style>[data-testid='stAppViewContainer'] *{cursor:wait !important;}"
+        ".fetch-lock{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.25);}"
+        "</style><div class='fetch-lock'></div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.status("Running the pipeline — scraping, analysing, indexing…",
+                   expanded=True) as box:
+        # Stage 1: scrape every source (silent — only the final result is shown).
         fresh = []
         for sid, label, make in sources:
             try:
                 got = list(make().collect(per_source))
-            except Exception as exc:  # noqa: BLE001
-                st.write(f"   • {label}: ⚠️ skipped ({str(exc)[:60]})"); continue
-            st.write(f"   • {label}: pulled **{len(got)}**")
+            except Exception:  # noqa: BLE001
+                continue
             for r in got:
                 fresh.append((sid, r))
         if not fresh:
             box.update(label="No reviews returned from any source", state="error"); return
 
-        # --- Stage 2: show the actual reviews + structure them ---
-        st.write(f"**②  Structuring {len(fresh)} reviews via the Groq LLM**")
+        # Stage 2: structure via Groq (silent), keep only on-theme complaints.
         client = groq.Groq()
         model = os.environ.get("GROQ_MODEL", MODEL)
         keep = []
         for sid, r in fresh:
             snippet = ((r.title + " — ") if r.title else "") + (r.body or "")
-            st.markdown(f"<div class='fetchrev'><b>{_source_label(sid)}</b> · "
-                        f"{snippet[:160]}</div>", unsafe_allow_html=True)
             try:
                 d = structure_one(client, model, {"title": r.title, "body": r.body})
-            except Exception as exc:  # noqa: BLE001
-                st.caption(f"     ↳ skipped ({exc})"); continue
-            # Keep only complaints: on-theme AND negative (positives/neutral skipped).
+            except Exception:  # noqa: BLE001
+                continue
             on_theme = d["theme"] in DISCOVERY_THEMES
-            is_neg = d["sentiment"] == "negative"
-            on = on_theme and is_neg
-            reason = ("" if on else
-                      " · off-theme (skipped)" if not on_theme else
-                      f" · {d['sentiment']} (skipped — complaints only)")
-            st.caption(f"     ↳ {_readable(d['theme'])} · {d['sentiment']} · "
-                       f"severity {d['severity_score']}{reason}")
-            # Log it for the LOGS tab.
+            on = on_theme and d["sentiment"] == "negative"
             status_txt = ("added" if on else
                           "off-theme" if not on_theme else "positive — skipped")
             st.session_state.fetched_log.insert(0, {
@@ -509,8 +493,7 @@ def _fetch_new_reviews(per_source: int = 6):
             if on:
                 keep.append((sid, r, d))
 
-        # --- Stage 3: embed + index ---
-        st.write("**③  Embedding + indexing into the vector store**")
+        # Stage 3: embed + index (silent).
         col = rag._collection()
         before = col.count()
         if keep:
@@ -528,11 +511,8 @@ def _fetch_new_reviews(per_source: int = 6):
                     "frustration": (d.get("frustration") or "")[:300],
                 } for sid, r, d in keep],
             )
-        st.write(f"   ↳ index grew **{before} → {col.count()}** "
-                 f"({len(keep)} complaints added)")
-
-        # --- Final: the new complaint reviews that are now searchable ---
-        st.write("**✅  New reviews added (complaints, now searchable):**")
+        # --- Final: only the new complaint reviews are shown ---
+        st.write(f"**New reviews added ({len(keep)} complaints, now searchable):**")
         if keep:
             for sid, r, d in keep:
                 snip = (((r.title + " — ") if r.title else "") + (r.body or ""))[:200]
