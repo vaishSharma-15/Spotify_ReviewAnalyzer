@@ -502,20 +502,26 @@ def view_analytics():
              for s in sd[:10]],
             "Segment", "Reviews", "Reviews", color=GREEN)
 
-    # --- Top frustrations (Q6) ---
+    # --- Top pain points (Q6): ranked at THEME level (volume × severity),
+    # since free-text frustrations rarely repeat. Show a representative example.
     tf = agg.get("top_frustrations", [])
-    if tf:
-        st.markdown("<div class='viewhead'>// TOP PAIN POINTS (by frequency × severity)</div>",
-                    unsafe_allow_html=True)
-        st.caption("The unmet needs that surface most consistently across reviews.")
-        for r in tf[:8]:
-            frus = (r.get("frustration") or "").strip().capitalize()
-            st.markdown(
-                f"<div class='logline'><span class='t'>#{r['rank']}</span> "
-                f"{frus[:110]}  "
-                f"<span style='color:#869585'>· {_readable(r['theme'])} · "
-                f"{r['n']}× · severity {r.get('avg_severity', 0):.1f}</span></div>",
+    example_for = {}
+    for r in tf:  # top_frustrations is ranked; first hit per theme = representative
+        example_for.setdefault(r["theme"], (r.get("frustration") or "").strip())
+    ranked = sorted(
+        td, key=lambda t: t["n"] * (t.get("avg_severity", 0) or 0), reverse=True)
+    st.markdown("<div class='viewhead'>// TOP PAIN POINTS (by impact = volume × severity)</div>",
                 unsafe_allow_html=True)
+    st.caption("The themes that hurt users most — the unmet needs to prioritise.")
+    for i, t in enumerate(ranked[:8], 1):
+        ex = example_for.get(t["theme"], "")
+        ex_html = (f" <span style='color:#bccbb9'>e.g. “{ex[:90]}”</span>" if ex else "")
+        st.markdown(
+            f"<div class='logline'><span class='t'>#{i}</span> "
+            f"<b>{_readable(t['theme']).title()}</b> "
+            f"<span style='color:#869585'>· {t['n']} reviews · "
+            f"severity {t.get('avg_severity', 0):.1f}/5</span>{ex_html}</div>",
+            unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------
