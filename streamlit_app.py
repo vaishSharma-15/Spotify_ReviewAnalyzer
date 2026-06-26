@@ -534,24 +534,15 @@ def _fetch_new_reviews(per_source: int = 8, target: int = 3):
                     "frustration": (d.get("frustration") or "")[:300],
                 } for sid, r, d in keep],
             )
-        # --- Final: only the new complaint reviews are shown ---
-        st.write(f"**New reviews added ({len(keep)} complaints, now searchable):**")
-        if keep:
-            for sid, r, d in keep:
-                snip = (((r.title + " — ") if r.title else "") + (r.body or ""))[:200]
-                st.markdown(
-                    f"<div class='fetchrev'><b>{_source_label(sid)}</b> "
-                    f"<span style='color:#869585'>· {_readable(d['theme'])} · "
-                    f"severity {d['severity_score']}</span><br>{snip}</div>",
-                    unsafe_allow_html=True)
-        else:
-            st.info("None of the freshly scraped reviews were on-theme complaints "
-                    "this time (recent reviews are often positive or off-topic). "
-                    "Try again — newer batches usually include some complaints.")
+        # The added reviews are shown in the persistent "🆕 fetched this session"
+        # panel on the TERMINAL tab — no need to list them here too.
+        if not keep:
+            st.info("No on-theme complaints in this batch (recent reviews are often "
+                    "positive). Try again — newer batches usually include some.")
         box.update(
             label=(f"✅ Done — {len(keep)} new complaints added & searchable"
                    if keep else "Done — no on-theme complaints in this batch"),
-            state="complete", expanded=True)
+            state="complete", expanded=False)
     finally:
         overlay.empty()  # always remove the click-block when the fetch ends
 
