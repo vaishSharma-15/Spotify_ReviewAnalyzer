@@ -191,8 +191,13 @@ if "last_trace" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-NAV = [("TERMINAL", "🖥️"), ("ANALYTICS", "📈"), ("LOGS", "🕘"),
-       ("SEVERITY", "🔥"), ("QUERY HISTORY", "🔎")]
+NAV = [
+    ("TERMINAL", ":material/chat:"),
+    ("ANALYTICS", ":material/bar_chart:"),
+    ("LOGS", ":material/manage_search:"),
+    ("SEVERITY", ":material/local_fire_department:"),
+    ("QUERY HISTORY", ":material/history:"),
+]
 
 SUGGESTIONS = [
     "Why do users struggle to discover new music?",
@@ -225,7 +230,7 @@ SPOTIFY_LOGO = (
 with st.sidebar:
     for name, icon in NAV:
         active = st.session_state.view == name
-        if st.button(f"{icon}  {name}", key=f"nav_{name}",
+        if st.button(name, icon=icon, key=f"nav_{name}",
                      use_container_width=True, type="primary" if active else "secondary"):
             st.session_state.view = name
             st.rerun()

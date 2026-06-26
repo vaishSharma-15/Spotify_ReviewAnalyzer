@@ -21,6 +21,6 @@ chromadb==0.6.3             # local vector store for retrieval
 # Phase 5 (Query Bot / API + UI)
 fastapi>=0.110             # backend API (local/dev)
 uvicorn>=0.29              # ASGI server (local/dev)
-streamlit>=1.32           # combined frontend+backend app (deployable)
+streamlit>=1.34           # combined frontend+backend app (deployable; needs icon= buttons)
 altair>=5.0               # charts in the Analytics/Sentiment views
 pandas>=1.5               # dataframes for the charts
