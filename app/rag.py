@@ -39,6 +39,45 @@ OUT_OF_SCOPE_MSG = (
     "Try asking, for example: *“Why do users struggle to discover new music?”* 🙏"
 )
 
+# Friendly small-talk so greetings/thanks/goodbyes get a human reply instead of
+# the out-of-scope message. Matched before the scope gate.
+import re as _re
+
+_SMALLTALK = [
+    (_re.compile(r"\b(thanks|thank you|thank u|thx|ty|appreciate|grateful)\b", _re.I),
+     "You're welcome! 😊 Happy to help. Ask me anything else about Spotify "
+     "music discovery whenever you like."),
+    (_re.compile(r"\b(bye|goodbye|see ya|see you|cya|good night|take care)\b", _re.I),
+     "Take care! 👋 Come back anytime to dig into what users say about Spotify "
+     "music discovery."),
+    (_re.compile(r"\b(how are you|how's it going|how are u|whats up|what's up|wassup)\b", _re.I),
+     "I'm doing great, thanks for asking! 🎧 I'm ready to help you explore "
+     "Spotify music-discovery feedback. What would you like to know?"),
+    (_re.compile(r"^\s*(hi+|hey+|hello+|yo+|hiya|heya|good (morning|afternoon|evening)|greetings)\b", _re.I),
+     "Hey there! 👋 I'm the Spotify Review Discovery Engine. Ask me why users "
+     "struggle to find new music, what frustrates them about recommendations, "
+     "and more — or tap a suggested question to start."),
+    (_re.compile(r"\b(who are you|what can you do|what do you do|help)\b", _re.I),
+     "I analyze real Spotify user reviews to explain why music discovery falls "
+     "short — repetitive recommendations, hard-to-find new music, and what "
+     "different listeners need. Ask me about any of that! 🎧"),
+]
+
+
+def _smalltalk_reply(question: str) -> str | None:
+    """Return a friendly reply for greetings/thanks/etc.; None otherwise.
+
+    Only fires on short messages so it never hijacks a real question that
+    happens to contain a polite word (e.g. 'thanks for the recs that repeat').
+    """
+    q = (question or "").strip()
+    if len(q.split()) > 6:
+        return None
+    for pattern, reply in _SMALLTALK:
+        if pattern.search(q):
+            return reply
+    return None
+
 # Lightweight intent gate: is the question actually about the music-discovery /
 # listening experience? Catches off-topic questions that mention "Spotify".
 SCOPE_SYSTEM = (
@@ -237,6 +276,14 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
 
     _t0 = _t.time()
     step("🔎 Reading your question…")
+
+    # Small talk (greeting / thanks / goodbye): reply warmly, skip the pipeline.
+    chat = _smalltalk_reply(question)
+    if chat is not None:
+        step("💬 Greeting / small talk — replying directly")
+        return {"answer": chat, "citations": [], "themes_analyzed": [],
+                "evidence_count": 0, "smalltalk": True, "trace": trace}
+
     emb_dim = len(embed_texts([question])[0])
     step(f"🧬 Turned it into a {emb_dim}-dim meaning vector "
          f"({(_t.time()-_t0)*1000:.0f} ms)")
