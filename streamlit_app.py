@@ -414,6 +414,73 @@ def _user_bubble(text: str):
                 unsafe_allow_html=True)
 
 
+def _fetch_new_reviews(n: int = 3):
+    """Live demo of the real pipeline: scrape → structure → embed → index.
+
+    Added reviews are searchable by the chatbot immediately (this session).
+    On Streamlit Cloud they don't persist past a restart (ephemeral storage).
+    """
+    import time as _t
+    from ingestion.collectors.appstore import AppStoreCollector
+    from indexing.embed import embed_texts
+    from structuring.structure import structure_one
+    from structuring.schema import DISCOVERY_THEMES, MODEL
+    import groq
+
+    if not os.environ.get("GROQ_API_KEY"):
+        st.error("GROQ_API_KEY not set — add it in the app's Secrets to fetch.")
+        return
+
+    with st.status("Running the real pipeline…", expanded=True) as box:
+        st.write(f"**①  Scraping** {n} fresh reviews from the Apple App Store…")
+        try:
+            fresh = list(AppStoreCollector(countries="us").collect(n))
+        except Exception as exc:  # noqa: BLE001
+            box.update(label="Scrape failed", state="error"); st.write(str(exc)); return
+        st.write(f"   ↳ pulled **{len(fresh)}** reviews")
+        if not fresh:
+            box.update(label="No reviews returned", state="error"); return
+
+        st.write("**②  Structuring** each via the Groq LLM…")
+        client = groq.Groq()
+        model = os.environ.get("GROQ_MODEL", MODEL)
+        keep = []
+        for r in fresh:
+            try:
+                d = structure_one(client, model, {"title": r.title, "body": r.body})
+            except Exception as exc:  # noqa: BLE001
+                st.write(f"   ↳ skipped one ({exc})"); continue
+            on_theme = d["theme"] in DISCOVERY_THEMES
+            st.write(f"   ↳ {_readable(d['theme'])} · {d['sentiment']} · "
+                     f"severity {d['severity_score']}" + ("" if on_theme else " · off-theme"))
+            if on_theme:
+                keep.append((r, d))
+
+        st.write("**③  Embedding + indexing** into the vector store…")
+        col = rag._collection()
+        before = col.count()
+        if keep:
+            docs = [((r.title + ". ") if r.title else "") + (r.body or "") for r, _ in keep]
+            embs = embed_texts(docs)
+            col.upsert(
+                ids=[f"live-{int(_t.time())}-{i}" for i in range(len(keep))],
+                embeddings=[e.tolist() for e in embs],
+                documents=docs,
+                metadatas=[{
+                    "theme": d["theme"], "sentiment": d["sentiment"],
+                    "user_segment": ",".join(d.get("user_segment") or ["unspecified"]),
+                    "severity_score": int(d["severity_score"]),
+                    "source": "app_store", "source_url": r.source_url or "",
+                    "frustration": (d.get("frustration") or "")[:300],
+                } for r, d in keep],
+            )
+        st.write(f"   ↳ index grew **{before} → {col.count()}** "
+                 f"({len(keep)} on-theme added)")
+        box.update(label=f"✅ Done — {len(keep)} new reviews now searchable this session",
+                   state="complete", expanded=False)
+    st.cache_data.clear()  # refresh counts shown in the UI
+
+
 # ----------------------------------------------------------------------------
 # VIEW: TERMINAL (chat)
 # ----------------------------------------------------------------------------
@@ -426,6 +493,16 @@ def view_terminal():
     # Welcome message (bot, left) — always greets the user at the top.
     with st.chat_message("assistant", avatar="🟢"):
         st.markdown(WELCOME)
+
+    # Live pipeline demo: fetch + index fresh reviews on demand.
+    fcol, _ = st.columns([0.4, 0.6])
+    if fcol.button("➕ Fetch new reviews", use_container_width=True,
+                   help="Runs the real pipeline live: scrape → LLM structure → "
+                        "embed → index. New on-theme reviews become searchable "
+                        "this session (not persisted on Cloud)."):
+        _fetch_new_reviews()
+        st.caption("These reviews were added this session for demo — the chatbot "
+                   "can now use them. (Pre-built index stays the source of truth.)")
 
     if not st.session_state.messages:
         st.caption("Try one of the key questions:")
