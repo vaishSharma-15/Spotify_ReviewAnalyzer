@@ -14,9 +14,9 @@ groq>=0.37                # LLM structuring via Groq (OpenAI-compatible)
 
 # Phase 4 (Indexing)
 sentence-transformers>=2.2  # local embedding model (all-MiniLM-L6-v2)
-# Pin chromadb to the version the committed index was built with — newer 1.x
-# cannot read the 0.6.x persisted format (causes get_collection InternalError).
-chromadb==0.6.3             # local vector store for retrieval
+# Pin chromadb to the version the committed index was built with. 1.x works on
+# modern Python (incl. 3.13/3.14 used by Streamlit Cloud), unlike the old 0.6.x.
+chromadb==1.5.9            # local vector store for retrieval
 
 # Phase 5 (Query Bot / API + UI)
 fastapi>=0.110             # backend API (local/dev)
