@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('streamlit_app.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m 'UI: don'\\\\''t truncate chart axis labels \\(full theme/segment names show\\) *)",
+      "Bash(git push *)"
     ]
   }
 }
