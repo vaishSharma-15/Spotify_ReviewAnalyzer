@@ -445,12 +445,21 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
             segment_block = (
                 "\nUser segments and the discovery challenges they skew to "
                 "(named segments — use these):\n" + sb + "\n")
+            allowed = ", ".join(
+                _readable_segment(d["user_segment"]).split(" (")[0]
+                for d in agg.get("segment_distribution", [])
+                if d["user_segment"] not in
+                {"premium", "free_tier", "family_plan", "student_plan", "unspecified"}
+            )
             segment_instr = (
-                " This is a question about user SEGMENTS: name the actual "
-                "segments above (e.g. genre specialists, music explorers, "
-                "casual listeners, power users, new users) and say which "
-                "discovery challenge each skews toward. Contrast 2-3 segments "
-                "rather than describing users in general."
+                " This is a question about user SEGMENTS. You MUST refer to "
+                "segments ONLY by these exact names: " + allowed + ". "
+                "Do NOT invent or paraphrase segment groups — never say things "
+                "like 'users with large libraries', 'long-time users', or "
+                "'people who listen a lot'; use the named segments above "
+                "instead (e.g. 'power users', 'genre specialists'). Contrast "
+                "2-3 of these named segments and the discovery challenge each "
+                "skews toward, instead of describing users in general."
             )
 
     prompt = (
