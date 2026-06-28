@@ -420,7 +420,26 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
     # so the model names actual segments instead of inventing vague groups.
     segment_block = ""
     segment_instr = ""
+    segment_breakdown: list = []
     if _is_segment_question(question):
+        skip = {"premium", "free_tier", "family_plan", "student_plan", "unspecified"}
+        tbs_map: dict[str, list] = {}
+        for r in agg.get("theme_by_segment", []):
+            tbs_map.setdefault(r["user_segment"], []).append(r)
+        for d in agg.get("segment_distribution", []):
+            seg = d["user_segment"]
+            if seg in skip:
+                continue
+            top = sorted(tbs_map.get(seg, []), key=lambda r: r["n"],
+                         reverse=True)[:1]
+            segment_breakdown.append({
+                "segment": _readable_segment(seg).split(" (")[0],
+                "n": d["n"],
+                "pct": round(d["pct_of_reviews"]),
+                "top_challenge": _readable_theme(top[0]["theme"]) if top else "",
+            })
+            if len(segment_breakdown) >= 6:
+                break
         sb = _segment_brief(agg)
         if sb:
             segment_block = (
@@ -507,6 +526,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "theme_full": theme_full,
         "theme_breakdown": theme_breakdown,
         "source_breakdown": source_breakdown,
+        "segment_breakdown": segment_breakdown,
         "index_total": _collection().count(),
         "aggregates": agg,
         "trace": trace,

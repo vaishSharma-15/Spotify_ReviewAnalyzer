@@ -394,6 +394,8 @@ def _answer_footer(meta: dict):
                         for t in meta.get("theme_full", [])[:5])
     sources = " · ".join(f"{_source_label(s['source'])} {s['n']} ({s['pct']}%)"
                          for s in meta.get("source_breakdown", []))
+    segs = " · ".join(f"{s['segment']} {s['n']} ({s['pct']}%)"
+                      for s in meta.get("segment_breakdown", []))
     html = (
         "<div class='evidence'>"
         f"<div class='eh'>📊 ANALYSIS SUMMARY</div>"
@@ -401,6 +403,7 @@ def _answer_footer(meta: dict):
            f"themes" + (f" &nbsp;(of {total:,} on-theme total)" if total else "") + "</div>"
            if base else "")
         + (f"<div class='er'><b>Themes:</b> {themes}</div>" if themes else "")
+        + (f"<div class='er'><b>User segments:</b> {segs}</div>" if segs else "")
         + (f"<div class='er'><b>Sources (sample):</b> {sources}</div>" if sources else "")
         + "</div>"
     )
@@ -408,11 +411,22 @@ def _answer_footer(meta: dict):
 
 
 def _answer_chart(meta: dict):
-    """Small charts under a bot answer: themes behind it + sources sample."""
+    """Small charts under a bot answer: themes behind it + sources sample.
+
+    For user-segment questions, lead with a named-segment breakdown so the
+    segmentation is visible, not just described in prose.
+    """
     tf = meta.get("theme_full") or []
     sb = meta.get("source_breakdown") or []
-    if not tf and not sb:
+    seg = meta.get("segment_breakdown") or []
+    if not tf and not sb and not seg:
         return
+    if seg:
+        st.caption("User segments behind this answer (named segments · top challenge)")
+        _hbar_chart(
+            [{"Segment": f"{s['segment']} — {s['top_challenge']}".strip(" —"),
+              "Reviews": s["n"]} for s in seg],
+            "Segment", "Reviews", "Reviews", color=GREEN)
     c1, c2 = st.columns(2)
     if tf:
         with c1:
@@ -616,7 +630,8 @@ def view_terminal():
         if result.get("evidence_count"):
             meta = {k: result.get(k) for k in
                     ("evidence_count", "analysis_base", "index_total",
-                     "theme_full", "theme_breakdown", "source_breakdown")}
+                     "theme_full", "theme_breakdown", "source_breakdown",
+                     "segment_breakdown")}
             with st.expander("📊 Data behind this answer"):
                 _answer_footer(meta)
                 _answer_chart(meta)
