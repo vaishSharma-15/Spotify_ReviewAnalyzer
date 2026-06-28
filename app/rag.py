@@ -186,6 +186,8 @@ def aggregates(db_path: Path = DEFAULT_DB_PATH) -> dict:
             "SELECT rank,theme,frustration,n,avg_severity,score,low_n FROM agg_top_frustrations ORDER BY rank LIMIT 15"),
         "segment_distribution": rows(
             "SELECT user_segment,n,pct_of_reviews,low_n FROM agg_segment_distribution ORDER BY n DESC"),
+        "theme_by_segment": rows(
+            "SELECT user_segment,theme,n FROM agg_theme_by_segment ORDER BY n DESC"),
         "sentiment_by_theme": rows(
             "SELECT theme,sentiment,n,pct_within_theme FROM agg_sentiment_by_theme"),
     }
@@ -206,6 +208,66 @@ def _aggregate_brief(agg: dict) -> str:
     if td:
         lines.append("Top complaint topics: " + "; ".join(
             f"{_readable_theme(t['theme'])} (~{round(t['pct'])}%)" for t in td))
+    return "\n".join(lines)
+
+
+# Plain-language names for the controlled user_segment vocabulary, so answers
+# can refer to real segments by their proper names (not vague paraphrases).
+SEGMENT_LABELS = {
+    "power_user": "power users (heavy, long-term listeners and curators)",
+    "casual_listener": "casual listeners (light, background use)",
+    "new_user": "new users",
+    "returning_user": "returning users (lapsed or switched from another app)",
+    "free_tier": "free-tier (ad-supported) users",
+    "premium": "premium subscribers",
+    "family_plan": "family-plan users",
+    "student_plan": "student-plan users",
+    "music_explorer": "music explorers (actively seek new artists)",
+    "genre_specialist": "genre specialists (devoted to one genre/niche)",
+    "mood_context_listener": "mood/context listeners (gym, study, sleep)",
+    "podcast_audiobook_user": "podcast/audiobook listeners",
+    "artist_creator": "artists/creators",
+    "unspecified": "users who gave no clear segment signal",
+}
+
+
+def _readable_segment(seg: str) -> str:
+    return SEGMENT_LABELS.get(seg, (seg or "unspecified").replace("_", " "))
+
+
+def _is_segment_question(q: str) -> bool:
+    ql = (q or "").lower()
+    return "segment" in ql or ("user" in ql and (
+        "type" in ql or "kind" in ql or "group" in ql))
+
+
+def _segment_brief(agg: dict, max_segments: int = 6) -> str:
+    """Per-segment view: which discovery challenges each named segment skews to.
+
+    Answers Q5 by naming real segments and the themes they concentrate in,
+    rather than letting the model invent vague descriptions.
+    """
+    dist = agg.get("segment_distribution", [])
+    tbs = agg.get("theme_by_segment", [])
+    # Skip plan/fallback rows here — Q5 is about WHO struggles with discovery.
+    skip = {"premium", "free_tier", "family_plan", "student_plan", "unspecified"}
+    by_seg: dict[str, list] = {}
+    for r in tbs:
+        by_seg.setdefault(r["user_segment"], []).append(r)
+    lines = []
+    for d in dist:
+        seg = d["user_segment"]
+        if seg in skip:
+            continue
+        top = sorted(by_seg.get(seg, []), key=lambda r: r["n"], reverse=True)[:3]
+        if not top:
+            continue
+        themes = ", ".join(f"{_readable_theme(t['theme'])} ({t['n']})" for t in top)
+        lines.append(
+            f"- {_readable_segment(seg)} — {d['n']} reviews "
+            f"(~{round(d['pct_of_reviews'])}%); top challenges: {themes}")
+        if len(lines) >= max_segments:
+            break
     return "\n".join(lines)
 
 
@@ -353,13 +415,33 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         f"{h['text'][:SNIPPET_CHARS]}"
         for i, h in enumerate(hits)
     )
+    # For Q5 ("which user segments…") ground the answer in the real, named
+    # segment vocabulary and the discovery challenges each segment skews to,
+    # so the model names actual segments instead of inventing vague groups.
+    segment_block = ""
+    segment_instr = ""
+    if _is_segment_question(question):
+        sb = _segment_brief(agg)
+        if sb:
+            segment_block = (
+                "\nUser segments and the discovery challenges they skew to "
+                "(named segments — use these):\n" + sb + "\n")
+            segment_instr = (
+                " This is a question about user SEGMENTS: name the actual "
+                "segments above (e.g. genre specialists, music explorers, "
+                "casual listeners, power users, new users) and say which "
+                "discovery challenge each skews toward. Contrast 2-3 segments "
+                "rather than describing users in general."
+            )
+
     prompt = (
         f"Question: {question}\n\n"
         f"Most relevant complaint topics: "
         f"{', '.join(_readable_theme(t) for t in top_themes)}\n\n"
         f"Topic stats (from {agg.get('meta', {}).get('n_reviews', '1,401')} reviews):\n"
         f"{_theme_brief_for(agg, top_themes)}\n\n"
-        f"Overall context:\n{_aggregate_brief(agg)}\n\n"
+        f"Overall context:\n{_aggregate_brief(agg)}\n"
+        f"{segment_block}\n"
         f"Real complaints to learn from (context only — don't quote them):\n{evidence}\n\n"
         "Read across ALL the complaints above and find the pattern they share. "
         "Then answer the question in 2-3 short, simple sentences describing what "
@@ -367,6 +449,7 @@ def answer(question: str, top_k: int = ANALYZE_K, theme: str | None = None,
         "no jargon, no lists, no citations. Do NOT mention any single user's "
         "specific numbers or details — generalize. Be factually precise and don't "
         "add claims the complaints don't support."
+        + segment_instr
     )
 
     _used_model = model or os.environ.get("GROQ_MODEL", S.MODEL)
