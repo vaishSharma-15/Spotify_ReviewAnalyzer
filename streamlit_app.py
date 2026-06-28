@@ -691,6 +691,36 @@ def view_analytics():
              for s in sd[:10]],
             "Segment", "Reviews", "Reviews", color=GREEN)
 
+    # --- Goal-based segment framing (who the discovery problem matters to) ---
+    st.markdown("<div class='viewhead'>// SEGMENTS THAT MATTER FOR DISCOVERY</div>",
+                unsafe_allow_html=True)
+    st.caption("Prioritised by relevance to the goal — meaningful discovery & "
+               "reducing repetitive listening — not by review count.")
+    GOAL_SEGMENTS = [
+        ("Music Explorer", "PRIMARY", "Actively wants new artists/songs — discovery "
+         "failure & repetition hurt them most."),
+        ("Genre Specialist", "PRIMARY", "Wants fresh tracks within their niche; recs "
+         "collapse to the mainstream → filter bubble."),
+        ("Power User / Curator", "PRIMARY", "Wants to steer the algorithm; frustrated "
+         "by repetition + no control levers."),
+        ("New User", "SECONDARY", "Cold-start: no taste profile yet → generic early "
+         "recommendations (onboarding)."),
+        ("Casual Listener", "SECONDARY", "Relies on autoplay/radio, so repetition "
+         "hits hardest despite not hunting for new music."),
+        ("Mood / Context Listener", "MODIFIER", "Context playlists (gym, study) go "
+         "stale over time."),
+        ("Free vs Premium", "MODIFIER", "Free shuffle-only worsens repetition; "
+         "premium expects better discovery 'since I pay'."),
+    ]
+    colors = {"PRIMARY": "#53e076", "SECONDARY": "#c8c6c5", "MODIFIER": "#869585"}
+    for name, tier, why in GOAL_SEGMENTS:
+        st.markdown(
+            f"<div class='fetchrev'><b>{name}</b> "
+            f"<span style='color:{colors[tier]};font-family:JetBrains Mono,monospace;"
+            f"font-size:11px;font-weight:700'>· {tier}</span><br>"
+            f"<span style='color:#bccbb9'>{why}</span></div>",
+            unsafe_allow_html=True)
+
     # --- Top pain points (Q6): ranked at THEME level (volume × severity),
     # since free-text frustrations rarely repeat. Show a representative example.
     tf = agg.get("top_frustrations", [])
