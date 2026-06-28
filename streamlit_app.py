@@ -276,7 +276,7 @@ with st.sidebar:
     _added = [r for r in st.session_state.get("fetched_log", []) if r.get("on_theme")]
     if _added:
         st.divider()
-        st.markdown(f"<div class='viewhead'>🆕 REVIEW FETCHED THIS SESSION ({len(_added)})</div>",
+        st.markdown(f"<div class='viewhead'>📥 NEW REVIEW FETCHED THIS SESSION ({len(_added)})</div>",
                     unsafe_allow_html=True)
         for r in _added:
             st.markdown(
@@ -737,7 +737,7 @@ def view_severity():
 # ----------------------------------------------------------------------------
 def view_logs():
     # --- Newly fetched reviews this session ---
-    st.markdown("<div class='viewhead'>// REVIEW FETCHED THIS SESSION</div>", unsafe_allow_html=True)
+    st.markdown("<div class='viewhead'>// NEW REVIEW FETCHED THIS SESSION</div>", unsafe_allow_html=True)
     fl = st.session_state.fetched_log
     if not fl:
         st.caption("No live fetches yet. Use “➕ Fetch new reviews” (top-right) to "
